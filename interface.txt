@@ -1,0 +1,472 @@
+
+! =============================================================================
+! Tabpage Structure Definition
+! =============================================================================
+TABID_Root 						=-1
+_idxTab 						= 1
+TABID_StyleAndDimensions		= _idxTab  : _idxTab = _idxTab + 1
+TABID_Appearance				= _idxTab  : _idxTab = _idxTab + 1
+
+
+! =============================================================================
+! Interface positions
+! =============================================================================
+
+_yPagestart = 5
+_x0 		= 0
+_xSecCol	= 222
+_dy			= 24
+_wFirstCol	= 217
+_hOutField	= 15
+_hInField	= 19
+_hPictInField = 45
+_wImputMin	= 60
+_wImputOpt	= 90
+_wImputMax	= 120
+_xySizePlateTypePict = 40
+_xySizePlateOrientPict = 22
+
+! =============================================================================
+! Display actual tabpages
+! =============================================================================
+ui_dialog `Definições Interruptor Elétrico`
+ui_current_page gs_ui_current_page
+
+UI_PAGE TABID_StyleAndDimensions, TABID_Root, `Estilo e Dimensões`, "uiTab_Dimension_hl(1)"
+	gosub "StyleAndDimensionPage"
+
+UI_PAGE TABID_Appearance, TABID_Root, `Aspecto`, "uiTab_2DRepr_hl(1)"
+	gosub "AppearancePage"
+
+
+! =============================================================================
+end
+! =============================================================================
+
+
+! =============================================================================
+"StyleAndDimensionPage":
+! -----------------------------------------------------------------------------
+! The style and dimensions
+! =============================================================================
+
+	! -------------------------------------------------------------------------
+	! Head
+	! -------------------------------------------------------------------------
+	
+	! ===== Box Size =====
+	_yc = _yPagestart
+	ui_outfield `Tamanho Caixa`, _x0, _yc, _wFirstCol, _hOutField
+	ui_radiobutton{2} "iBoxSize", 1, '4x2', _xSecCol, 					_yc-4, _wImputMin, _hInField
+	ui_radiobutton{2} "iBoxSize", 2, '4x4', _xSecCol + _wImputMin + 5,	_yc-4, _wImputMin, _hInField
+	
+	! ===== Position =====
+	_yc = _yc + _dy
+	ui_outfield `Posição`, _x0, _yc, _wFirstCol, _hOutField
+	ui_infield{3} "iPosition", _xSecCol, _yc-4, _wImputMax, _hInField,
+			8, 0,
+			0, 0, 0, 0,
+			0, 0,
+			0, `Parede`, POSITION_WALL,
+			0, `Pavimento`, POSITION_FLOOR
+	
+	! ===== Orientation =====
+	if iPosition = POSITION_WALL	then
+		ui_infield{3} "iPlateOrientation", 444-52-3, _yc-4, 52, 26,
+			4, 3,									! PlateOrientation_hl
+			2, 1,
+			_xySizePlateOrientPict, _xySizePlateOrientPict, _xySizePlateOrientPict, _xySizePlateOrientPict,
+			1, `Horizontal`, 0,
+			2, `Vertical`, 1
+	endif
+	
+	! ===== Plate Type =====
+	_yc = _yc + _dy
+	ui_outfield `Tipo de Placa`, _x0, _yc, _wFirstCol, _hOutField
+	if iPosition = POSITION_FLOOR then
+		
+		if iBoxSize = BOXSIZE_SIMPLE then
+			ui_infield{3} "iTypePlate", _xSecCol, _yc-4, _wImputMax, _hPictInField,
+					2, 1,							! FloorPlateType_4x2_hl
+					1, 1,
+					_xySizePlateTypePict, _xySizePlateTypePict,	_xySizePlateTypePict, _xySizePlateTypePict,
+					1, _stTypePlateNameArray[1],				PLATE_ONE_PLUG
+		else
+			ui_infield{3} "iTypePlate", _xSecCol, _yc-4, _wImputMax, _hPictInField,
+					2, 2,							! FloorPlateType_4x4_hl
+					2, 1,
+					_xySizePlateTypePict, _xySizePlateTypePict, _xySizePlateTypePict, _xySizePlateTypePict,
+					1, _stTypePlateNameArray[1],				PLATE_ONE_PLUG,
+					2, _stTypePlateNameArray[2],				PLATE_TWO_PLUG
+		endif
+	else
+		if iBoxSize = BOXSIZE_SIMPLE then
+			ui_infield{3} "iTypePlate", _xSecCol, _yc-4, _wImputMax, _hPictInField,
+					2, 4,							! WallPlateType_4x2_hl
+					6, 1,
+					_xySizePlateTypePict, _xySizePlateTypePict, _xySizePlateTypePict, _xySizePlateTypePict,
+					1, _stTypePlateNameArray[3],				PLATE_ONE_ROW,
+					3, _stTypePlateNameArray[4],				PLATE_TWO_ROW,
+					4, _stTypePlateNameArray[5],				PLATE_THREE_ROW,
+					2, _stTypePlateNameArray[6],				PLATE_ONE_VERT,
+					5, _stTypePlateNameArray[7],				PLATE_TWO_VERT,
+					6, _stTypePlateNameArray[8],				PLATE_BLANK
+		else
+			ui_infield{3} "iTypePlate", _xSecCol, _yc-4, _wImputMax, _hPictInField,
+					2, 5,							! WallPlateType_4x4_hl
+					5, 1,
+					_xySizePlateTypePict, _xySizePlateTypePict, _xySizePlateTypePict, _xySizePlateTypePict,
+					1, _stTypePlateNameArray[9],				PLATE_ONE_ROW,
+					2, _stTypePlateNameArray[10],				PLATE_TWO_ROW,
+					3, _stTypePlateNameArray[11],				PLATE_THREE_ROW,
+					4, _stTypePlateNameArray[12],				PLATE_TWO_VERT,
+					5, _stTypePlateNameArray[8],				PLATE_BLANK
+		endif
+	endif
+
+
+
+	! ===== icleiling =====
+
+if iPosition = 1 then
+
+ui_infield{3} "iceiling", _xSecCol, _yc+50, 444, _hInField,
+				7, 0,
+				0, 0, 0, 0,
+				0, 0,
+				0, `Espelho no teto`, 0,
+				0, `Espelho no teto`, 1
+
+endif
+
+	
+
+	! ===== Interruptor em "S" =====
+
+
+if iPosition = 0 then
+
+ui_infield{3} "iSswitch", _xSecCol, _yc+50, 444, _hInField,
+				7, 0,
+				0, 0, 0, 0,
+				0, 0,
+				0, `Interruptor em "S"`, 0,
+				0, `Interruptor em "S"`, 1
+
+endif
+
+
+	! -------------------------------------------------------------------------
+	! Modules
+	! -------------------------------------------------------------------------
+	
+	! ===== Variables =====
+	_iBoxSize = iBoxSize
+	if iBoxSize = BOXSIZE_DOUBLE & iPosition = POSITION_FLOOR & iTypePlate = PLATE_ONE_ROW 		then _iBoxSize = 1
+	
+	_iNumRows = 1
+	if iPosition = POSITION_WALL then
+		if iTypePlate = PLATE_THREE_ROW 							then _iNumRows = 3
+		if iTypePlate = PLATE_TWO_ROW | iTypePlate = PLATE_TWO_VERT	then _iNumRows = 2
+		if iTypePlate = PLATE_ONE_ROW | iTypePlate = PLATE_ONE_VERT	then _iNumRows = 1
+	endif
+	
+	
+	! ===== Headline =====
+	_yc = _yc + _hPictInField
+	ui_separator 0, _yc+40, 444, _yc
+	_yc = _yc + 50
+	if iTypePlate # PLATE_BLANK then
+		for _col = 1 to _iBoxSize
+			ui_outfield `Módulos`, (_col-1)*_xSecCol, 							_yc-4,		_wImputOpt, _hOutField
+			ui_outfield `Circuito`, (_col-1)*_xSecCol+_wImputOpt+3,				_yc-4, 		_wImputMin, _hOutField
+			ui_outfield `Potência`, (_col-1)*_xSecCol+_wImputOpt+_wImputMin+6,	_yc-4, 		_wImputMin, _hOutField
+		next _col
+	endif
+	
+	! ===== Modules Matrix =====
+		_yc = _yc - 6
+	if iTypePlate # PLATE_BLANK then
+		_yc = _yc + _dy
+		for _row = 1 to _iNumRows
+			for _col = 1 to _iBoxSize
+				ui_infield{4} _stParamiTypeModulArray[_row+_col*_col-1], (_col-1)*_xSecCol, _yc-4, _wImputOpt, _hInField,
+						8, "", 0, 0,
+						0, 0, 0, 0,
+						0, stTypeModulValues[1], MODULE_BLIND,
+						0, stTypeModulValues[2], MODULE_PLUG,
+						0, stTypeModulValues[3], MODULE_PLUG_MIXED,
+						0, stTypeModulValues[4], MODULE_SWITCH,
+						0, stTypeModulValues[5], MODULE_RJ45,
+						0, stTypeModulValues[6], MODULE_ANTENNA,
+						0, stTypeModulValues[7], MODULE_1_USB,
+						0, stTypeModulValues[8], MODULE_2_USB
+
+				if	_iTypeModulArray[_row+_col*_col-1] = MODULE_PLUG		| \
+					_iTypeModulArray[_row+_col*_col-1] = MODULE_PLUG_MIXED	| \
+					_iTypeModulArray[_row+_col*_col-1] = MODULE_SWITCH		then
+					ui_infield{4} _stParamCircuitArray[_row+_col*_col-1], (_col-1)*_xSecCol+3+_wImputOpt, _yc-4, _wImputMin, _hInField
+					if	_iTypeModulArray[_row+_col*_col-1] = MODULE_PLUG		| \
+						_iTypeModulArray[_row+_col*_col-1] = MODULE_PLUG_MIXED	then
+						ui_infield{4} _stParamPotencyArray[_row+_col*_col-1], (_col-1)*_xSecCol+6+_wImputOpt+_wImputMin, _yc-4, _wImputMin, _hInField
+					endif
+				endif
+			next _col
+			_yc = _yc + _dy
+		next _row
+		_yc = _yc - _row*_dy
+	endif
+
+
+	! -------------------------------------------------------------------------
+	! Bottom
+	! -------------------------------------------------------------------------
+	if iPosition = POSITION_WALL then
+		_yc = _yc + 4*_dy
+		ui_separator 0, _yc, 444, _yc
+		_yc = _yc + 10
+		
+		ui_infield{3} "isHeightOnFloorPlan", 0, _yc-4, 444, _hInField,
+				7, 0,
+				0, 0, 0, 0,
+				0, 0,
+				0, `Mostrar Altura na Planta`, 0,
+				0, `Mostrar Altura na Planta`, 1
+
+		_yc = _yc + _dy
+
+		ui_infield{3} "movheight", 0, _yc-4, 444, _hInField,
+				7, 0,
+				0, 0, 0, 0,
+				0, 0,
+				0, `Movimentar texto`, 0,
+				0, `Movimentar texto`, 1
+
+		
+		_yc = _yc + _dy
+		
+		ui_outfield `Espessura do Contrapiso`, 0, _yc, 219, _hOutField
+		ui_infield{3} "hFloorThicknessMod", _xSecCol, _yc-4, _wImputMin, _hInField
+	endif
+
+
+return
+
+
+! =============================================================================
+"AppearancePage":
+! -----------------------------------------------------------------------------
+! 2D, 3D representation, text parameters
+! =============================================================================
+ 
+	_idx = 1
+	dim paramNameReprArray[]
+	dim childFlagReprArray[]
+	dim iconNameReprArray[]
+
+
+		paramNameReprArray	[_idx] = "altura_2d"
+		childFlagReprArray	[_idx] = 0
+		iconNameReprArray	[_idx] = ""
+
+		_idx = _idx + 1
+		paramNameReprArray	[_idx] = "altura_baixo"
+		childFlagReprArray	[_idx] = 0
+		iconNameReprArray	[_idx] = ""
+
+		_idx = _idx + 1
+		paramNameReprArray	[_idx] = "altura_medio"
+		childFlagReprArray	[_idx] = 0
+		iconNameReprArray	[_idx] = ""
+
+		_idx = _idx + 1
+		paramNameReprArray	[_idx] = "gs_2D_representation"
+		childFlagReprArray	[_idx] = 0
+		iconNameReprArray	[_idx] = ""
+
+		_idx = _idx + 1
+		paramNameReprArray	[_idx] = "uni_cont_pen"
+		childFlagReprArray	[_idx] = 1
+		iconNameReprArray	[_idx] = "ui_list_contourPen_hl(1)"
+		
+		_idx = _idx + 1
+		paramNameReprArray	[_idx] = "gs_cont_pen"
+		childFlagReprArray	[_idx] = 1
+		iconNameReprArray	[_idx] = "ui_list_contourPen_hl(1)"
+
+
+		IF uni_cont_pen = 0 THEN
+
+			_idx = _idx + 1
+			paramNameReprArray	[_idx] = "gs_cont_pen_int"
+			childFlagReprArray	[_idx] = 1
+			iconNameReprArray	[_idx] = "ui_list_contourPen_hl(1)"
+	
+			_idx = _idx + 1
+			paramNameReprArray	[_idx] = "gs_cont_pen_plugue"
+			childFlagReprArray	[_idx] = 1
+			iconNameReprArray	[_idx] = "ui_list_contourPen_hl(1)"
+	
+			_idx = _idx + 1
+			paramNameReprArray	[_idx] = "gs_cont_pen_pluguem"
+			childFlagReprArray	[_idx] = 1
+			iconNameReprArray	[_idx] = "ui_list_contourPen_hl(1)"
+	
+			_idx = _idx + 1
+			paramNameReprArray	[_idx] = "gs_cont_pen_rj"
+			childFlagReprArray	[_idx] = 1
+			iconNameReprArray	[_idx] = "ui_list_contourPen_hl(1)"
+	
+			_idx = _idx + 1
+			paramNameReprArray	[_idx] = "gs_cont_pen_tv"
+			childFlagReprArray	[_idx] = 1
+			iconNameReprArray	[_idx] = "ui_list_contourPen_hl(1)"
+	
+			_idx = _idx + 1
+			paramNameReprArray	[_idx] = "gs_cont_pen_usb"
+			childFlagReprArray	[_idx] = 1
+			iconNameReprArray	[_idx] = "ui_list_contourPen_hl(1)"
+	
+			_idx = _idx + 1
+			paramNameReprArray	[_idx] = "gs_cont_pen_tusb"
+			childFlagReprArray	[_idx] = 1
+			iconNameReprArray	[_idx] = "ui_list_contourPen_hl(1)"
+
+		ENDIF
+
+				_idx = _idx + 1
+		paramNameReprArray	[_idx] = "gs_2D_symbol_filltype"
+		childFlagReprArray	[_idx] = 0
+		iconNameReprArray	[_idx] = ""
+		
+		_idx = _idx + 1
+		paramNameReprArray	[_idx] = "gs_fill_type"
+		childFlagReprArray	[_idx] = 1
+		iconNameReprArray	[_idx] = "ui_list_fillType_hl(1)"
+		
+		_idx = _idx + 1
+		paramNameReprArray	[_idx] = "gs_fill_pen"
+		childFlagReprArray	[_idx] = 1
+		iconNameReprArray	[_idx] = "ui_list_fillPen_hl(1)"
+		
+		_idx = _idx + 1
+		paramNameReprArray	[_idx] = "gs_back_pen"
+		childFlagReprArray	[_idx] = 1
+		iconNameReprArray	[_idx] = "ui_list_fillBgPen_hl(1)"
+
+
+		_idx = _idx + 1
+		paramNameReprArray	[_idx] = "fillTypeintS"
+		childFlagReprArray	[_idx] = 1
+		iconNameReprArray	[_idx] = "ui_list_fillType_hl(1)"
+
+
+				_idx = _idx + 1
+		paramNameReprArray	[_idx] = "gs_2D_hight_filltype"
+		childFlagReprArray	[_idx] = 0
+		iconNameReprArray	[_idx] = ""
+
+		_idx = _idx + 1
+		paramNameReprArray	[_idx] = "fillTypeCust1"
+		childFlagReprArray	[_idx] = 1
+		iconNameReprArray	[_idx] = "ui_list_fillType_hl(1)"
+		
+		_idx = _idx + 1
+		paramNameReprArray	[_idx] = "fillPenCust1"
+		childFlagReprArray	[_idx] = 1
+		iconNameReprArray	[_idx] = "ui_list_fillPen_hl(1)"
+		
+		_idx = _idx + 1
+		paramNameReprArray	[_idx] = "fillBackPenCust1"
+		childFlagReprArray	[_idx] = 1
+		iconNameReprArray	[_idx] = "ui_list_fillBgPen_hl(1)"
+
+				_idx = _idx + 1
+		paramNameReprArray	[_idx] = "gs_2D_txt"
+		childFlagReprArray	[_idx] = 0
+		iconNameReprArray	[_idx] = ""
+
+		_idx = _idx + 1
+		paramNameReprArray	[_idx] = "iTextAlwaysReadable"
+		childFlagReprArray	[_idx] = 1
+		iconNameReprArray	[_idx] = ""
+
+		_idx = _idx + 1
+		paramNameReprArray	[_idx] = "fontSize"
+		childFlagReprArray	[_idx] = 1
+		iconNameReprArray	[_idx] = "ui_FontSize_hl(1)"
+
+		_idx = _idx + 1
+		paramNameReprArray	[_idx] = "fontType"
+		childFlagReprArray	[_idx] = 1
+		iconNameReprArray	[_idx] = "ui_list_fontType_hl(1)"
+		
+		_idx = _idx + 1
+		paramNameReprArray	[_idx] = "fontPen"
+		childFlagReprArray	[_idx] = 1
+		iconNameReprArray	[_idx] = "ui_list_contourPen_hl(1)"
+
+		_idx = _idx + 1
+		paramNameReprArray	[_idx] = "prehigh"
+		childFlagReprArray	[_idx] = 1
+		iconNameReprArray	[_idx] = "ui_prehigh"
+
+		_idx = _idx + 1
+		paramNameReprArray	[_idx] = "sulhigh"
+		childFlagReprArray	[_idx] = 1
+		iconNameReprArray	[_idx] = "ui_sulhigh"
+
+				_idx = _idx + 1
+		paramNameReprArray	[_idx] = "gs_2D_boxonfloorplan"
+		childFlagReprArray	[_idx] = 0
+		iconNameReprArray	[_idx] = ""
+
+		_idx = _idx + 1
+		paramNameReprArray	[_idx] = "isShowBoxOnFloorPlan"
+		childFlagReprArray	[_idx] = 1
+		iconNameReprArray	[_idx] = ""
+
+		_idx = _idx + 1
+		paramNameReprArray	[_idx] = "gs_3D_representation"
+		childFlagReprArray	[_idx] = 0
+		iconNameReprArray	[_idx] = ""
+		
+		_idx = _idx + 1
+		paramNameReprArray	[_idx] = "iDetlevel3D"
+		childFlagReprArray	[_idx] = 1
+		iconNameReprArray	[_idx] = "ui_list_detailLevel3D_hl(1)"
+		
+		_idx = _idx + 1
+		paramNameReprArray	[_idx] = "surfBox"
+		childFlagReprArray	[_idx] = 1
+		iconNameReprArray	[_idx] = "ui_list_surface_hl(1)"
+		
+		_idx = _idx + 1
+		paramNameReprArray	[_idx] = "surfPlate"
+		childFlagReprArray	[_idx] = 1
+		iconNameReprArray	[_idx] = "ui_list_surface_hl(1)"
+		
+		_idx = _idx + 1
+		paramNameReprArray	[_idx] = "surfModule"
+		childFlagReprArray	[_idx] = 1
+		iconNameReprArray	[_idx] = "ui_list_surface_hl(1)"
+
+	file_dependence "ui_list_contLineType_hl(1)"
+	file_dependence "ui_list_contourPen_hl(1)"
+	file_dependence "ui_list_fillType_hl(1)"
+	file_dependence "ui_list_fillPen_hl(1)"
+	file_dependence "ui_list_fillBgPen_hl(1)"
+	file_dependence "ui_list_detailLevel3D_hl(1)"
+	file_dependence "ui_list_surface_hl(1)"
+	file_dependence "ui_FontSize_hl(1)"
+	file_dependence "ui_prehigh"
+	file_dependence "ui_sulhigh"
+	file_dependence "ui_list_fontType_hl(1)"
+
+	call "ui_object_Representation" parameters all	listFieldID		= TABID_Appearance,
+													paramNameArray	= paramNameReprArray,
+													childFlagArray	= childFlagReprArray,
+													iconNameArray	= iconNameReprArray
+
+
+return

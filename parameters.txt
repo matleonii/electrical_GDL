@@ -1,0 +1,146 @@
+
+! =============================================================================
+! VALUES
+! =============================================================================
+
+! ===== iBoxSize =====
+values{2} "iBoxSize" 1, '4"x2"',
+					 2, '4"x4"'
+
+! ===== iTypeModul =====
+
+dim	_typeModulArrayInt[]
+dim	_typeModulArrayStr[]
+
+if iPosition = POSITION_FLOOR then
+	_typeModulArrayInt[1] = MODULE_PLUG
+	_typeModulArrayInt[2] = MODULE_PLUG_MIXED
+
+	_typeModulArrayStr[1] = stTypeModulValues[2]
+	_typeModulArrayStr[2] = stTypeModulValues[3]
+else
+	_typeModulArrayInt[1] = MODULE_BLIND
+	_typeModulArrayInt[2] = MODULE_PLUG
+	_typeModulArrayInt[3] = MODULE_PLUG_MIXED
+	_typeModulArrayInt[4] = MODULE_SWITCH
+	_typeModulArrayInt[5] = MODULE_RJ45
+	_typeModulArrayInt[6] = MODULE_ANTENNA
+	_typeModulArrayInt[7] = MODULE_1_USB
+	_typeModulArrayInt[8] = MODULE_2_USB
+
+	_typeModulArrayStr[1] = stTypeModulValues[1]
+	_typeModulArrayStr[2] = stTypeModulValues[2]
+	_typeModulArrayStr[3] = stTypeModulValues[3]
+	_typeModulArrayStr[4] = stTypeModulValues[4]
+	_typeModulArrayStr[5] = stTypeModulValues[5]
+	_typeModulArrayStr[6] = stTypeModulValues[6]
+	_typeModulArrayStr[7] = stTypeModulValues[7]
+	_typeModulArrayStr[8] = stTypeModulValues[8]
+
+endif
+
+values{2} "iTypeModulA"	_typeModulArrayInt, _typeModulArrayStr
+values{2} "iTypeModulB"	_typeModulArrayInt, _typeModulArrayStr
+values{2} "iTypeModulC"	_typeModulArrayInt, _typeModulArrayStr
+values{2} "iTypeModulD"	_typeModulArrayInt, _typeModulArrayStr
+values{2} "iTypeModulE"	_typeModulArrayInt, _typeModulArrayStr
+values{2} "iTypeModulF"	_typeModulArrayInt, _typeModulArrayStr
+
+! ===== iTypePlate =====
+values{2} "iTypePlate" _iTypePlateArray, _stTypePlateArray
+
+! ===== iPlateOrientation =====
+values{2} "iPlateOrientation"	HORIZONTAL,	`Horizontal`,
+								VERTICAL,	`Vertical`
+
+! ===== iTextAlwaysReadable =====
+values{2} "iTextAlwaysReadable"	READABLE_NOTHING,	`Nenhum`,
+								READABLE_VALUES,	`Apenas Valores (Altura e Potência)`,
+								READABLE_ALL,		`Todo o texto`
+
+! =============================================================================
+! PARAMETER MODIFICATION
+! =============================================================================
+
+call "DetlevelFunctionMacro" parameters	bEnable3DFunction		= 1,
+										iFlagEnable3DSymbols	= 1 + 4 + 16 + 32,
+										bEnable2DFunction		= 0,
+										iFlagEnable2DSymbols	= 0
+
+if iBoxSize = BOXSIZE_SIMPLE then
+	widthBox	= 0.07
+	widthPlate	= 0.078
+	heightBox	= 0.108
+else
+	widthBox	= 0.112
+	widthPlate	= 0.12
+	heightBox	= 0.112
+endif
+
+A	= widthPlate
+
+if iPosition = POSITION_FLOOR then
+	thickPlate		= 0.0015
+	B				= heightPlate
+	ZZYZX			= thickPlate + depthBox
+else
+	thickPlate	= 0.008
+	B			= thickPlate + depthBox
+	if not(iPlateOrientation) then
+		ZZYZX		= heightPlate
+	else
+		A			= heightPlate
+		ZZYZX		= widthPlate
+	endif
+endif
+
+ac_toplevel = ac_bottomlevel + ZZYZX
+
+if GLOB_MODPAR_NAME = "xPosModules_m" | GLOB_MODPAR_NAME = "yPosModules_m"  then
+	xPosModules_mm = xPosModules_m*1000
+	yPosModules_mm = yPosModules_m*1000
+else
+	xPosModules_m = xPosModules_mm/1000
+	yPosModules_m = yPosModules_mm/1000
+endif
+
+
+parameters	widthBox 	= widthBox,
+			widthPlate	= widthPlate,
+			heightBox	= heightBox,
+			thickPlate	= thickPlate,
+			A			= A,
+			B			= B,
+			ZZYZX		= ZZYZX,
+			ac_toplevel = ac_toplevel,
+			xPosModules_mm = xPosModules_mm,
+			xPosModules_m = xPosModules_m,
+			yPosModules_mm = yPosModules_mm,
+			yPosModules_m = yPosModules_m
+
+! =============================================================================
+! PARAMETER MODIFICATION (MOVE HEIGHT)
+! =============================================================================
+
+if GLOB_MODPAR_NAME = "xPosModules_mX" | GLOB_MODPAR_NAME = "yPosModules_mX"  then
+	xPosModules_mmX = xPosModules_mX*1000
+	yPosModules_mmX = yPosModules_mX*1000
+else
+	xPosModules_mX = xPosModules_mmX/1000
+	yPosModules_mX = yPosModules_mmX/1000
+endif
+
+
+parameters	xPosModules_mmX = xPosModules_mmX,
+			xPosModules_mX = xPosModules_mX,
+			yPosModules_mmX = yPosModules_mmX,
+			yPosModules_mX = yPosModules_mX
+
+
+! =============================================================================
+! HIDE AND LOCK
+! =============================================================================
+
+lock			"widthBox", "heightBox", "depthBox", "widthPlate", "heightPlate", "A", "B", "ZZYZX"
+hideparameter All "A", "B"
+

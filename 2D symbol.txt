@@ -1,0 +1,1382 @@
+
+! =============================================================================
+! Definitions and setting
+! =============================================================================
+! Text Style definitions
+! -----------------------------------------------------------------------------
+
+define style "Circuit"	fontType, fontSize, 5, 0
+define style "Potency"	fontType, fontSize, 5, 0
+define style "hPosItem"	fontType, fontSize, 5, 0
+define style "TV"		Arial, 		1.3, 	5, 0
+
+! -----------------------------------------------------------------------------
+! 2D representation
+! -----------------------------------------------------------------------------
+
+pen gs_cont_pen
+fill gs_fill_type
+
+_hModElevation = GLOB_ELEVATION - hFloorThicknessMod
+
+! -----------------------------------------------------------------------------
+! Scale sensitivity
+! -----------------------------------------------------------------------------
+
+PAPER_TO_MODEL = GLOB_SCALE / 1000
+
+! =============================================================================
+! Base hotspot
+! =============================================================================
+
+_unID = 1
+Hotspot2 0, 0, _unID : _unID = _unID + 1
+
+! =============================================================================
+! Variables
+! =============================================================================
+
+! -----------------------------------------------------------------------------
+! Sizes
+! -----------------------------------------------------------------------------
+
+_EPS = 0.0001
+
+! ===== Moving hotspot's Position =====
+_xPosModules_m = xPosModules_mm * PAPER_TO_MODEL
+_yPosModules_m = yPosModules_mm * PAPER_TO_MODEL
+! ===== Floor plate length =====
+_lFloorPlate = 3.3 * PAPER_TO_MODEL
+
+! ===== Height whereby symbol fill depends =====
+_zLowerLimitFillShift = altura_baixo
+_zUpperLimitFillShift = altura_medio
+
+! ===== Module dimensions =====
+_hModule							= 2.6 * PAPER_TO_MODEL
+_dCircle							= 3 * PAPER_TO_MODEL
+_dyHeightText						= fontSize * PAPER_TO_MODEL
+_hModulesArm						= 1 * PAPER_TO_MODEL
+_wModulesArm						= 2 * PAPER_TO_MODEL
+_wTriangle							= 1.5 * PAPER_TO_MODEL
+_rateFontSizeToDistance				= 13/15 * PAPER_TO_MODEL
+_wUsbSymbol							= 0.55 * PAPER_TO_MODEL
+_hUsbSymbol							= 1.1 * PAPER_TO_MODEL
+_lUsbCenterLine						= 0.5 * PAPER_TO_MODEL
+_dxUsbSymbols						= 0.07 * PAPER_TO_MODEL
+_dyUsbSymbol						= 0.22 * PAPER_TO_MODEL
+
+! ===== Simple Switch Text Positions =====
+_dxCircuitText						= 2.5 * PAPER_TO_MODEL
+_dyCircuitText						= 0.5 * PAPER_TO_MODEL
+
+! ===== Double Switch Text Positions =====
+ 
+_xDistDoubleCircuit					= -_hModule/2	- (0.93 /	1.5 * fontSize) * PAPER_TO_MODEL 
+
+! ===== Triple Switch Text Positions =====
+ 
+_yDistThirdCircuit 					= (0.93 + 2*fontSize) * PAPER_TO_MODEL 
+
+! -----------------------------------------------------------------------------
+! Text format
+! -----------------------------------------------------------------------------
+
+! ===== String format to elevation =====
+_stFormat		= "%m" 		! Get Format String	with meter default 
+reqUnit		= request("Elevation_dimension", "", _stFormat)
+
+! ===== Text orientation to elevation =====
+_angleViewRot = 0
+reqAngle = request ("View_Rotangle", "", _angleViewRot)
+_totalRotate = (SYMB_ROTANGLE + _angleViewRot) MOD 360
+_nTransReadability = 0
+
+
+! =============================================================================
+! Subroutines
+! =============================================================================
+
+if iPosition = POSITION_FLOOR then
+	gosub "drawFloorSymbol"
+else
+	gosub "isDoubleOrTripleSwitch"
+	gosub "drawWallSymbol"
+endif
+
+! =============================================================================
+end
+! =============================================================================
+
+
+! =============================================================================
+"isDoubleOrTripleSwitch":
+! -----------------------------------------------------------------------------
+! Set booleans of double and triple switches
+! -----------------------------------------------------------------------------
+! Input parameters:
+! 	iBoxSize:		number of columns equal with the number.
+!	iTypePlate:		the modules' rows depends on it
+! Input variables:
+!	_iTypeModulArray:	contains the module type of the actual position
+! Output variables:
+!	_isDoubleSwitch: boolean in the two columns, true if the column has two switches
+!	_isTripleSwitch: boolean in the two columns, true if the column is a triple switch
+! =============================================================================
+
+if iSswitch = 0 then
+
+	! ===== Variable of modules number to repeat drawing modules =====
+	_iNumRows = iTypePlate
+	if iTypePlate = PLATE_ONE_VERT then _iNumRows = 1
+	if iTypePlate = PLATE_TWO_VERT then _iNumRows = 2
+
+	! ===== Variable declaration of needed double or triple switch =====
+	dim _isTripleSwitch[2]
+		_isTripleSwitch[1] = 0
+		_isTripleSwitch[2] = 0
+
+	dim _isDoubleSwitch[2]
+		_isDoubleSwitch[1] = 0
+		_isDoubleSwitch[2] = 0
+
+	! ===== Variable (boolean) of need double or triple switch =====
+	for _col = 1 to iBoxSize
+		for _row = 1 to _iNumRows
+			if _iTypeModulArray[_row+_col*_col-1]				= MODULE_SWITCH	then
+				if _row 								= _iNumRows-2		then
+					if _iTypeModulArray[_row+_col*_col]			= MODULE_SWITCH	then
+						if _iTypeModulArray[_row+_col*_col+1]	= MODULE_SWITCH	then
+							_isTripleSwitch[_col] = 1
+							_row = _iNumRows
+						else
+							_isDoubleSwitch[_col] = 1
+							_row = _row +1
+						endif
+					else
+						if 	_iTypeModulArray[_row+_col*_col]	# MODULE_SWITCH	& \
+							_iTypeModulArray[_row+_col*_col+1]	= MODULE_SWITCH	then
+								_isDoubleSwitch[_col] = 1
+								_row = _iNumRows
+						endif
+					endif
+				else
+					if _row 							= _iNumRows-1					then
+						if _iTypeModulArray[_row+_col*_col]		= MODULE_SWITCH	then
+							_isDoubleSwitch[_col] = 1
+							_row = _row +1
+						endif
+					endif
+				endif
+			endif
+		next _row
+	next _col
+
+endif
+
+return
+
+
+! =============================================================================
+"drawFloorSymbol":
+! -----------------------------------------------------------------------------
+! Draw the floor symbol from center point
+! -----------------------------------------------------------------------------
+! Input parameters:
+!	widthBox:			width of the box in wall
+!	heightBox:			height of the box in wall
+!	GLOB_SCALE:			draw a rectangle around the symbol, if it smaller due to the scale
+!	iTypePlate:			if it is Blank, modules don't drawed, only the arms, but they can't move
+! Input variables:
+!	_iTypeModulArray:	contains the module type of the actual position
+!	_lFloorPlate:		floor plate length. Constant, defined at the beginning of the script
+!	_hModule:			module height if it is triangle (Plug, RJ45)
+! Output variables:
+!	_col, _row:			number of rows and columns what the Power Plug Symbol needs
+!						to know which Potency text have to write and where
+! =============================================================================
+	fill gs_fill_type
+	! ===== Frame for too small Floor symbol =====
+	if GLOB_SCALE <= 20 then
+		poly2_b 10, 1+2+4, gs_fill_pen, gs_back_pen,
+			-widthBox/2,		-heightBox/2,		1,
+			 widthBox/2,		-heightBox/2,		1,
+			 widthBox/2,		 heightBox/2,		1,
+			-widthBox/2,		 heightBox/2,		1,
+			-widthBox/2,		-heightBox/2,		-1,
+			-_lFloorPlate/2,	-_lFloorPlate/2,	1,
+			-_lFloorPlate/2,	 _lFloorPlate/2,	1,
+			 _lFloorPlate/2,	 _lFloorPlate/2,	1,
+			 _lFloorPlate/2,	-_lFloorPlate/2,	1,
+			 -_lFloorPlate/2,	-_lFloorPlate/2,	-1
+	endif
+
+	! ===== Floor symbol =====
+	
+	poly2_b 4, 1+2+4, gs_fill_pen, gs_back_pen,
+		-_lFloorPlate/2,	-_lFloorPlate/2,	1,
+		-_lFloorPlate/2,	_lFloorPlate/2,		1,
+		_lFloorPlate/2,		_lFloorPlate/2,		1,
+		_lFloorPlate/2,		-_lFloorPlate/2,	1
+	! ===== Floor symbol hotspots =====
+	hotspot2	-_lFloorPlate/2,	-_lFloorPlate/2,	_unID : _unID = _unID + 1
+	hotspot2	-_lFloorPlate/2,	_lFloorPlate/2,		_unID : _unID = _unID + 1
+	hotspot2	_lFloorPlate/2,		_lFloorPlate/2,		_unID : _unID = _unID + 1
+	hotspot2	_lFloorPlate/2,		-_lFloorPlate/2,	_unID : _unID = _unID + 1
+
+	! ===== Floor plug symbol =====
+	add2 0, _hModule/2
+	_col = 1
+	_row = 1
+	if	_iTypeModulArray[_row+_col*_col-1]			= MODULE_PLUG_MIXED 	| \
+		(iTypePlate 								= PLATE_TWO_PLUG		& \
+		_iTypeModulArray[_row+(_col+1)*(_col+1)-1]	= MODULE_PLUG_MIXED)	then
+		gosub "drawPowerPlugMixSymbol"
+	else	!	MODULE_PLUG
+		gosub "drawPowerPlugSymbol"
+	endif
+	del 1
+return
+
+
+! =============================================================================
+"drawWallSymbol":
+! -----------------------------------------------------------------------------
+! draws wall symbol from the middle of the box line whitch is on wall
+! -----------------------------------------------------------------------------
+! Input Parameters:
+!	isShowBoxOnFloorPlan:	the wall box drawing depends on it.
+!	widthBox:				width of the box in wall
+!	heightBox:				height of the box in wall
+!	depthBox:				depth of the box in wall
+!	iPlateOrientation:		the wall box floor plan size is depends on it.
+!	xPosModules_m, xPosModules_mm, yPosModules_m, yPosModules_mm :
+!							user can move the modules tree, this parameter contains the value of the displacement
+!	iTypePlate:				if it is Blank, modules don't drawed, only the arms, but they can't move
+!	iBoxSize:				the box's size, the columns number depends on it.
+!	isHeightOnFloorPlan:	if it is true, write the elevation
+!	iTextAlwaysReadable:	It's a three-position switch. 
+!							If it's 0, then texts rotates with the symbol.
+!							If it's 1 then just the values (height and potency) rotates to always readable positions.
+!							If it's 2 then all texts (including circuit and symbol texts) rotates
+! Input variables:
+!	_wModule:				the width of a module. Constant, defined at the beginning of the script
+!	_hModule:				the height of a module. Constant, defined at the beginning of the script
+!	_heightColumn:			the height of the full column. Value set in "DrawWallModules" subroutine
+!	_xPosModules_m,
+!	_yPosModules_m:			the moved modules tree scale independent displacement value in model space
+!	_stFormat:				string format to elevation, defined by request at the beginning of the script
+!	_hModElevation:			the elevation of the element corrected by user defined floor thickness
+!	_totalRotate:			the full rotation of the view and the element
+! Output variables:
+!	_heightColumn:			defined here with 0
+! =============================================================================
+
+	! ===== Variable to know how mutch moduleHeight distance need to Height text =====
+	dim _heightColumn[2]
+		_heightColumn[1] = 0
+		_heightColumn[2] = 0
+
+	! ===== Box On Floorplan =====
+	if isShowBoxOnFloorPlan then
+		fill gs_fill_type
+		poly2_b 4, 1+2+4, gs_fill_pen, gs_back_pen,
+			-(widthBox/2*(iPlateOrientation-1)-heightBox/2*(iPlateOrientation)),	depthBox,	1,
+			widthBox/2*(iPlateOrientation-1)-heightBox/2*(iPlateOrientation),		depthBox,	1,
+			widthBox/2*(iPlateOrientation-1)-heightBox/2*(iPlateOrientation),		0,			1,
+			-(widthBox/2*(iPlateOrientation-1)-heightBox/2*(iPlateOrientation)),	0,			1
+
+	! ===== Box hotspots =====
+		hotspot2	0,																		depthBox,	_unID : _unID = _unID + 1
+		hotspot2	-(widthBox/2*(iPlateOrientation-1)-heightBox/2*(iPlateOrientation)),	depthBox,	_unID : _unID = _unID + 1
+		hotspot2	widthBox/2*(iPlateOrientation-1)-heightBox/2*(iPlateOrientation),		depthBox,	_unID : _unID = _unID + 1
+		hotspot2	widthBox/2*(iPlateOrientation-1)-heightBox/2*(iPlateOrientation),		0,			_unID : _unID = _unID + 1
+		hotspot2	-(widthBox/2*(iPlateOrientation-1)-heightBox/2*(iPlateOrientation)),	0,			_unID : _unID = _unID + 1
+	endif
+
+	! ===== Modules coordinates hotspots =====
+	if iTypePlate # PLATE_BLANK then
+		hotspot2	0,				_yPosModules_m,	_unID, xPosModules_m, 1+128+1024,	xPosModules_mm :		_unID = _unID + 1
+		hotspot2	-1,				_yPosModules_m,	_unID, xPosModules_m, 3+1024,		xPosModules_mm :		_unID = _unID + 1
+		hotspot2	_xPosModules_m,	_yPosModules_m,	_unID, xPosModules_m, 2+1024,		xPosModules_mm :		_unID = _unID + 1
+
+		hotspot2	_xPosModules_m,	0,				_unID, yPosModules_m, 1+128+1024,	yPosModules_mm :		_unID = _unID + 1
+		hotspot2	_xPosModules_m,	-1,				_unID, yPosModules_m, 3+1024,		yPosModules_mm :		_unID = _unID + 1
+		hotspot2	_xPosModules_m,	_yPosModules_m,	_unID, yPosModules_m, 2+1024,		yPosModules_mm :		_unID = _unID + 1
+		add2 _xPosModules_m, _yPosModules_m
+	endif
+
+	! ===== Subroutines =====
+	if iBoxSize = BOXSIZE_SIMPLE then
+		gosub "drawSimpleBoxModules"
+	else
+		gosub "drawDoubleBoxModules"
+	endif
+
+	! ===== Height on Floorplan =====
+
+		! ===== Moving Height on Floorplan =====
+
+		IF movheight = 1 then
+		
+		_EPS = 0.0001
+		
+		! ===== Moving hotspot's Position =====
+		_xPosModules_mX = xPosModules_mmX * PAPER_TO_MODEL
+		_yPosModules_mX = yPosModules_mmX * PAPER_TO_MODEL
+		! ===== Floor plate length =====
+		_lFloorPlate = 3.3 * PAPER_TO_MODEL
+		
+		! ===== Height whereby symbol fill depends =====
+		_zLowerLimitFillShift = 0.3
+		_zUpperLimitFillShift = 1.3
+		
+		
+		!correção do posicionamento do hotspot quando escalado
+		
+		
+			
+			ADD2 0, hotdis * GLOB_SCALE/1000
+			
+		
+		
+		! ===== Modules coordinates hotspots =====
+		ADD2 0,2* PAPER_TO_MODEL
+				hotspot2	0,				_yPosModules_mX,	_unID, xPosModules_mX, 1+128+1024,	xPosModules_mmX :		_unID = _unID + 1
+				hotspot2	-1,				_yPosModules_mX,	_unID, xPosModules_mX, 3+1024,		xPosModules_mmX :		_unID = _unID + 1
+				hotspot2	_xPosModules_mX,	_yPosModules_mX,	_unID, xPosModules_mX, 2+1024,		xPosModules_mmX :		_unID = _unID + 1
+		
+				hotspot2	_xPosModules_mX,	0,				_unID, yPosModules_mX, 1+128+1024,	yPosModules_mmX :		_unID = _unID + 1
+				hotspot2	_xPosModules_mX,	-1,				_unID, yPosModules_mX, 3+1024,		yPosModules_mmX :		_unID = _unID + 1
+				hotspot2	_xPosModules_mX,	_yPosModules_mX,	_unID, yPosModules_mX, 2+1024,		yPosModules_mmX :		_unID = _unID + 1
+				add2 _xPosModules_mX, _yPosModules_mX
+			
+		
+			if isHeightOnFloorPlan then
+				pen fontPen
+				set style "hPosItem"
+				_hModElevationString = str(_stFormat, _hModElevation)
+				gosub "checkAndSetValuesReadability"
+				text2  0, 0, prehigh+_hModElevationString+sulhigh
+				del 1 + _nTransReadability
+				_nTransReadability = 0
+				pen gs_cont_pen
+			endif
+		
+		DEL 1
+		
+		
+		endif
+
+	IF movheight = 0 then
+
+	if isHeightOnFloorPlan then
+			pen fontPen
+			set style "hPosItem"
+			_hModElevationString = str(_stFormat, _hModElevation)
+			add2 0, max(_heightColumn[1], _heightColumn[2]) * (-1) - 1.5*_dyHeightText
+			gosub "checkAndSetValuesReadability"
+			text2  0, 0, prehigh+_hModElevationString+sulhigh
+			del 1 + _nTransReadability
+			_nTransReadability = 0
+			pen gs_cont_pen
+		endif		
+	endif
+
+return
+
+
+! =============================================================================
+"drawSimpleBoxModules":
+! -----------------------------------------------------------------------------
+! Draw the modules of 4"x 2" Box
+! -----------------------------------------------------------------------------
+! Input parameters:
+!	iTypePlate:		if it is Blank, modules don't drawed, only the arms
+! Input variables:
+!	_hModulesArm:	the height of a modules' Arm. Constant, defined at the beginning of the script
+! Output variables:
+!	_col:			number of columns what the "DrawWallModules", and the 
+!					modules drawer subroutines need for a lot of functions (texts, positions)
+! =============================================================================
+
+	line2 0, 0, 0, -_hModulesArm
+	if iTypePlate # PLATE_BLANK then
+		add2 0, -_hModulesArm
+		_col = 1
+		gosub "DrawWallModules"
+		del 1
+	endif
+return
+
+
+! =============================================================================
+"drawDoubleBoxModules":
+! -----------------------------------------------------------------------------
+! Draw the modules of 4"x 4" Box
+! -----------------------------------------------------------------------------
+! Input parameters:
+!	fontSize:		 the font size of user defined texts
+!	iTypePlate:		 if it is Blank, modules don't drawed, only the arms
+! Input variables:
+!	_hModulesArm:	 the height of a modules' Arm. Constant, defined at the beginning of the script
+!	_wModulesArm:	 the base width of a modules' Arm. Constant, defined at the beginning of the script
+!	_rateFontSizeToDistance:
+!					 the ratio of fontsize and horizontal distance. Constant, defined at the beginning of the script
+!	_isDoubleSwitch: Boolean true if the column has two switches
+!	_isTripleSwitch: Boolean true if the column is a triple switch
+! Output variables:
+!	_col:			 number of columns what the "DrawWallModules", and the 
+!					 modules drawer subroutines need for a lot of functions (texts, positions)
+! =============================================================================
+
+	! ===== Distances for arms of modules list depend on texts =====
+	_leftdistance	= (_wModulesArm + _rateFontSizeToDistance*(_isTripleSwitch[1]*fontSize + _isDoubleSwitch[1]*fontSize)) * (-1)
+	_rightdistance	= (_wModulesArm + _rateFontSizeToDistance*(_isTripleSwitch[2]*fontSize + _isDoubleSwitch[2]*fontSize))
+
+	! ===== Arms of modules =====
+	poly2_b 4, 1, gs_fill_pen, gs_back_pen,
+			_leftdistance,	-_hModulesArm,	1,
+			_leftdistance,	0,					1,
+			_rightdistance,	0,					1,
+			_rightdistance,	-_hModulesArm,	0
+
+	! ===== Modules =====
+	if iTypePlate # PLATE_BLANK then
+		for _col = 1 to 2
+			add2 _rightdistance * (_col-1) - _leftdistance * (_col-2) , -_hModulesArm
+			gosub "DrawWallModules"
+			del 1
+		next _col
+	endif
+return
+
+
+! =============================================================================
+"DrawWallModules":
+! -----------------------------------------------------------------------------
+! Draw one column modules
+! -----------------------------------------------------------------------------
+! Input parameters:
+!	iTypePlate:			the modules' rows depends on it
+! Input variables:
+!	_isDoubleSwitch: 	boolean true if the column has two switches
+!	_isTripleSwitch: 	boolean true if the column is a triple switch
+!	_iTypeModulArray:	contains the module type of the actual position
+!	_hModule:			module height if it is triangle (Plug, RJ45). Constant, defined at the beginning of the script
+!	_dCircle:			Circle module diameter (used by same as _hModule).Constant, defined at the beginning of the script
+! Output variables:
+!	_row:				number of row what the modules drawer subroutines need for a lot of functions (texts, positions)
+!	_heightColumn:		the height of the full column. Value set in "DrawWallModules" subroutine
+!	_secrow:			the number of the second row in a double switch symbol
+! =============================================================================
+
+	! ====== Number of rows =====
+	_iNumRows = iTypePlate
+	if iTypePlate = PLATE_ONE_VERT then _iNumRows = 1
+	if iTypePlate = PLATE_TWO_VERT then _iNumRows = 2
+
+	! ====== Variables to loop control =====
+	_nTransModules			= 0	
+	_increaseHeightColumn 	= 0
+
+	! ====== Hotspot on the end of arms =====
+	hotspot2 0, 0, _unID : _unID = _unID + 1
+
+	! ====== Loop from first to _iNumRows th row =====
+	for _row = 1 to _iNumRows
+
+		! ----- Blind -----
+		if _iTypeModulArray[_row+_col*_col-1] # MODULE_BLIND						then
+
+			! ----- Plug -----
+			if _iTypeModulArray[_row+_col*_col-1] = MODULE_PLUG						then
+				gosub "drawPowerPlugSymbol"
+				add2 0, -_hModule
+				_nTransModules = _nTransModules + 1
+				endif
+			! ----- Plug (mixed Potency)-----
+			if _iTypeModulArray[_row+_col*_col-1] = MODULE_PLUG_MIXED				then
+				gosub "drawPowerPlugMixSymbol"
+				add2 0, -_hModule
+				_nTransModules = _nTransModules + 1
+				endif
+			! ----- Switch em S -----
+
+		if iSswitch = 1 then
+			if _iTypeModulArray[_row+_col*_col-1] = MODULE_SWITCH					then
+				gosub "drawSSwitchSymbol"
+				add2 0, -_hModule
+				_nTransModules = _nTransModules + 1
+			endif
+		endif
+
+
+
+		if iSswitch = 0 then
+			if _iTypeModulArray[_row+_col*_col-1]	= MODULE_SWITCH					then
+
+				! ----- Triple switch -----
+				if _isTripleSwitch[_col]											then
+					gosub "drawTripleSwitchSymbol"
+					_row = _iNumRows
+					add2 0, -_dCircle
+					_nTransModules = _nTransModules + 1
+					_increaseHeightColumn = 1.5 * _hModule
+				else
+					! ----- Double switch -----
+					if _isDoubleSwitch[_col] & _row < 3								then
+						! ----- If the first two modul is switch -----
+						if _iTypeModulArray[_row+_col*_col]	= MODULE_SWITCH			then
+							_secrow = _row + 1		! in which row is the second symbol
+							gosub "drawDoubleSwitchSymbol"
+							_row = _row +1
+							add2 0, -_dCircle
+							_nTransModules = _nTransModules + 1
+							_increaseHeightColumn = _dCircle - _hModule  + _increaseHeightColumn
+						! ----- If the first and third modul is switch -----
+						else
+							_secrow = _row + 2		! in which row is the second symbol
+							gosub "drawDoubleSwitchSymbol"
+							add2 0, -_dCircle
+							_nTransModules = _nTransModules + 1
+							_increaseHeightColumn = _dCircle - _hModule  + _increaseHeightColumn
+						endif
+					! ----- Simple switch -----
+					endif
+					if not (_isDoubleSwitch[_col])									then
+						gosub "drawSimpleSwitchSymbol"
+						add2 0, -_dCircle
+						_nTransModules = _nTransModules + 1
+						_increaseHeightColumn = _dCircle - _hModule  + _increaseHeightColumn
+					endif
+				endif
+			endif
+		endif
+			! ----- RJ45 -----
+			if _iTypeModulArray[_row+_col*_col-1] = MODULE_RJ45						then
+				gosub "drawRJ45Symbol"
+				add2 0, -_hModule
+				_nTransModules = _nTransModules + 1
+			endif
+			! ----- Antenna -----
+			if _iTypeModulArray[_row+_col*_col-1] = MODULE_ANTENNA 					then
+				gosub "drawAntennaSymbol"
+				add2 0, -_dCircle
+				_nTransModules = _nTransModules + 1
+				_increaseHeightColumn = _dCircle - _hModule  + _increaseHeightColumn
+			endif
+			! ----- USB -----
+			if _iTypeModulArray[_row+_col*_col-1] = MODULE_1_USB					then
+				gosub "drawSimpleUsbSymbol"
+				add2 0, -_hModule
+				_nTransModules = _nTransModules + 1
+			endif
+			if _iTypeModulArray[_row+_col*_col-1] = MODULE_2_USB					then
+				gosub "drawDoubleUsbSymbol"
+				add2 0, -_hModule
+				_nTransModules = _nTransModules + 1
+			endif
+		endif
+		hotspot2 0, 0, _unID : _unID = _unID + 1
+	next _row
+
+	! ===== Del transformations from loop =====
+	del _nTransModules
+
+	! ===== Variable to know how mutch moduleHeight distance need to Height text =====
+	_heightColumn[_col] = _nTransModules*_hModule + _increaseHeightColumn
+return
+
+! =============================================================================
+"drawSSwitchSymbol":
+! -----------------------------------------------------------------------------
+
+MUL2 GLOB_SCALE/50, GLOB_SCALE/50
+
+add2 -0.05,-0.13
+
+add2     -8.298219382747, -13.91462219938
+drawindex      10
+pen     gs_cont_pen_int
+fill fillTypeintS
+poly2_b{5}      56,      2,      0,      3, gs_cont_pen_int, 0, 
+                   0,            0,            1,            0,            0,            1,            0, 
+        8.34391507018, 13.99237004261,      1, 
+        8.352738967743, 14.05419905636,    900, 
+                   0, -7.233689746315,   4001, 
+        8.343600653958, 14.0230820069,    900, 
+                   0, -24.95872400407,   4001, 
+        8.336219580166, 14.01310998671,    900, 
+                   0, -34.04298174501,   4001, 
+        8.334889420232, 14.01243171727,    900, 
+                   0, -78.6283923647,   4001, 
+        8.347231156612, 13.98889299751,    900, 
+                   0, -48.3273042675,   4001, 
+        8.352316516103, 14.00363208436,    900, 
+                   0, -60.19662537145,   4001, 
+        8.39517991952, 14.00750673907,      1, 
+        8.356616023521, 14.00562377482,    900, 
+                   0, 50.56757661275,   4001, 
+        8.34792135518, 13.98475374432,    900, 
+                   0, 12.72261456725,   4001, 
+        8.350427427829, 13.9840430915,    900, 
+                   0, 18.0263738325,   4001, 
+        8.344709578039, 13.98466518809,    900, 
+                   0, 22.04563788651,   4001, 
+        8.334998460577, 14.01134111117,    900, 
+                   0, 87.88315023111,   4001, 
+        8.336079660011, 14.01276494058,    900, 
+                   0, 36.91088531277,   4001, 
+        8.346409414153, 14.02832724642,    900, 
+                   0, 22.4064466927,   4001, 
+        8.552804609307, 14.93083252255,    900, 
+                   0, 1.115831458183,   4001, 
+        8.33732967426, 13.89707043938,    900, 
+                   0, -12.7207718873,   4001, 
+        8.361407379944, 13.94764219939,    900, 
+                   0, -39.73236166457,   4001, 
+        8.3655296887, 13.95039894395,    900, 
+                   0, -58.97508042332,   4001, 
+        8.357339973687, 13.95759630763,    900, 
+                   0, -36.81472925732,   4001, 
+        8.352251128495, 13.97418797641,    900, 
+                   0, -36.22976314164,   4001, 
+        8.346347920788, 13.96328321845,    900, 
+                   0, -66.00438831722,   4001, 
+        8.298219382747, 13.95681308583,      1, 
+        8.341997604849, 13.95854322644,    900, 
+                   0, 57.57853311225,   4001, 
+        8.347487827479, 13.98026041068,    900, 
+                   0, 28.06821351723,   4001, 
+        8.353028494015, 13.97431848599,    900, 
+                   0, 32.6191401092,   4001, 
+        8.363741233405, 13.95154047986,    900, 
+                   0, 94.86760879904,   4001, 
+        8.35532766515, 13.93989029714,    900, 
+                   0, 21.76301696039,   4001, 
+        8.332658851465, 13.88200379331,    900, 
+                   0, 15.97041026249,   4001, 
+        8.34391507018, 13.99237004261,      1
+
+
+
+DEL 1
+DEL 1
+DEL 1
+
+	! ===== Text print =====
+	pen fontPen
+	set style "Circuit"
+	add2 -0.1*GLOB_SCALE/50,-0.05*GLOB_SCALE/50
+	gosub "checkAndSetAllTextReadability"
+	text2  0, 0, _stCircuitArray[_row+_col*_col-1]
+	del 1 + _nTransReadability
+	_nTransReadability = 0
+	pen gs_cont_pen
+
+
+
+return
+
+
+! =============================================================================
+"drawPowerPlugSymbol":
+! -----------------------------------------------------------------------------
+! Draw the power plug symbol from top middle point
+! -----------------------------------------------------------------------------
+! Input parameters:
+!	iPosition:			the position of the item (wall/floor)
+!	iTextAlwaysReadable:	It's a three-position switch.
+!							If it's 0, then texts rotates with the symbol.
+!							If it's 1 then just the values (height and potency) rotates to always readable positions.
+!							If it's 2 then all texts (including circuit and symbol texts) rotates
+! Input variables:
+!	_hModElevation:		the elevation of the element corrected by user defined floor thickness
+!	_zLowerLimitFillShift, _zUpperLimitFillShift:
+!						height to shift height dependent fill, Constant, defined at the beginning of the script
+!	_wTriangle: 		width of power plug symbol
+!	_hModule:			module height if it is triangle (Plug, RJ45)
+!	_stPotencyArray:	contains the Potency string of the actual position
+!	_wModulesArm:		the width of a modules' Arm. Constant, defined at the beginning of the script
+!	_dyHeightText:		text height in paperspace
+!	_totalRotate:		the full rotation of the view and the element
+! =============================================================================
+
+	_bTriangleMirrored = 1
+	gosub "drawTriangleSymbol"
+
+	! ===== Potency text =====
+		set style "Potency"
+		_dxPotencyText = stw(_stPotencyArray[_row+_col*_col-1])/2 * PAPER_TO_MODEL
+	if _col = 1 then
+		! ----- First column -----
+		add2 -_wModulesArm - _dxPotencyText, 0
+	else
+		! ----- Second column -----
+		add2 _wModulesArm + _dxPotencyText, 0
+	endif 
+	! ----- Text print -----
+	pen fontPen
+	add2 0, -_dyHeightText
+	gosub "checkAndSetValuesReadability"
+	text2  0, 0, _stPotencyArray[_row+_col*_col-1]
+	del 2 + _nTransReadability
+	_nTransReadability = 0
+	pen gs_cont_pen
+
+return
+
+
+! =============================================================================
+"drawPowerPlugSymbolPM":
+! -----------------------------------------------------------------------------
+! Draw the power plug symbol from top middle point
+! -----------------------------------------------------------------------------
+! Input parameters:
+!	iPosition:			the position of the item (wall/floor)
+!	iTextAlwaysReadable:	It's a three-position switch.
+!							If it's 0, then texts rotates with the symbol.
+!							If it's 1 then just the values (height and potency) rotates to always readable positions.
+!							If it's 2 then all texts (including circuit and symbol texts) rotates
+! Input variables:
+!	_hModElevation:		the elevation of the element corrected by user defined floor thickness
+!	_zLowerLimitFillShift, _zUpperLimitFillShift:
+!						height to shift height dependent fill, Constant, defined at the beginning of the script
+!	_wTriangle: 		width of power plug symbol
+!	_hModule:			module height if it is triangle (Plug, RJ45)
+!	_stPotencyArray:	contains the Potency string of the actual position
+!	_wModulesArm:		the width of a modules' Arm. Constant, defined at the beginning of the script
+!	_dyHeightText:		text height in paperspace
+!	_totalRotate:		the full rotation of the view and the element
+! =============================================================================
+
+	_bTriangleMirrored = 1
+	gosub "drawTriangleSymbolPM"
+
+	! ===== Potency text =====
+		set style "Potency"
+		_dxPotencyText = stw(_stPotencyArray[_row+_col*_col-1])/2 * PAPER_TO_MODEL
+	if _col = 1 then
+		! ----- First column -----
+		add2 -_wModulesArm - _dxPotencyText, 0
+	else
+		! ----- Second column -----
+		add2 _wModulesArm + _dxPotencyText, 0
+	endif 
+	! ----- Text print -----
+	pen fontPen
+	add2 0, -_dyHeightText
+	gosub "checkAndSetValuesReadability"
+	text2  0, 0, _stPotencyArray[_row+_col*_col-1]
+	del 2 + _nTransReadability
+	_nTransReadability = 0
+	pen gs_cont_pen
+
+return
+
+
+
+! =============================================================================
+"drawPowerPlugMixSymbol":
+! -----------------------------------------------------------------------------
+! Draw the mixed potency symbol above power plug symbol from top middle point
+! -----------------------------------------------------------------------------
+! Input variables:
+!	_wTriangle: 	width of power plug symbol
+! =============================================================================
+
+	pen gs_cont_pen_pluguem
+
+	line2	-_wTriangle,	-1.0 * PAPER_TO_MODEL,
+			_wTriangle,		-1.0 * PAPER_TO_MODEL
+	line2	-_wTriangle,	-1.5 * PAPER_TO_MODEL,
+			_wTriangle,		-1.5 * PAPER_TO_MODEL
+	gosub "drawPowerPlugSymbolPM"
+
+return
+
+
+! =============================================================================
+"drawSimpleSwitchSymbol":
+! -----------------------------------------------------------------------------
+! Draw the simple switch symbol from top middle point
+! -----------------------------------------------------------------------------
+! Input variables:
+!	_dCircle:			circle module diameter (used by same as _hModule). Constant, defined at the beginning of the script
+!	_dxCircuitText, _dxCircuitText:
+!						circuit text position. Constant, defined at the beginning of the script
+!	_stCircuitArray:	contains the Circuit string of the actual position
+! =============================================================================
+
+	! ===== Circle =====
+	pen gs_cont_pen_int
+	fill gs_fill_type
+	poly2_b 2, 1+2, gs_fill_pen, gs_back_pen,
+		0,	-_dCircle/2,	901,
+		_dCircle/2,	360,	4001
+
+	! ===== Circuit text =====
+	if _col = 1 then
+		! ----- First column -----
+		add2 -_dxCircuitText, 0
+	else
+		! ----- Second column -----
+		add2 _dxCircuitText, 0
+	endif 
+	! ----- Text print -----
+	set style "Circuit"
+	pen fontPen
+	add2 0, -_dyCircuitText
+	gosub "checkAndSetAllTextReadability"
+	text2  0, 0, _stCircuitArray[_row+_col*_col-1]
+	pen gs_cont_pen
+	del 2 + _nTransReadability
+	_nTransReadability = 0
+return
+
+
+! =============================================================================
+"drawDoubleSwitchSymbol":
+! -----------------------------------------------------------------------------
+! Draw the double switch symbol from top middle point
+! -----------------------------------------------------------------------------
+! Input variables:
+!	_dCircle:			circle module diameter (used by same as _hModule). Constant, defined at the beginning of the script
+!	_xDistDoubleCircuit, _dxCircuitText:
+!						circuit text position. Constant, defined at the beginning of the script
+!	_stCircuitArray:	contains the Circuit string of the actual position
+! =============================================================================
+
+	! ===== Circle =====
+	pen gs_cont_pen_int
+	fill gs_fill_type
+	poly2_b 2, 1+2, gs_fill_pen, gs_back_pen,
+		0,	-_dCircle/2,	901,
+		_dCircle/2,	360,	4001
+	! ===== Vertical line =====
+	line2 0, 0, 0, -_dCircle
+
+	! ===== Circuit text =====
+	set style "Circuit"
+	pen fontPen
+	! ----- Text print 1 -----
+	add2 -_xDistDoubleCircuit*(_col-2) - _xDistDoubleCircuit*(_col-1),	-_dyCircuitText
+	gosub "checkAndSetAllTextReadability"
+	text2  0,0, _stCircuitArray[_row+_col*_col-1]
+	del 1 + _nTransReadability
+	_nTransReadability = 0
+	! ----- Text print 2 -----
+	
+	add2 _xDistDoubleCircuit*(_col-2) + _xDistDoubleCircuit*(_col-1),-_dyCircuitText
+	gosub "checkAndSetAllTextReadability"
+	text2  0,0, _stCircuitArray[_secrow+_col*_col-1]
+	del 1 + _nTransReadability
+	_nTransReadability = 0
+	pen gs_cont_pen
+return
+
+
+! =============================================================================
+"drawTripleSwitchSymbol":
+! -----------------------------------------------------------------------------
+! Draw the triple switch symbol from top middle point
+! -----------------------------------------------------------------------------
+! Input variables:
+!	_dCircle:			circle module diameter (used by same as _hModule). Constant, defined at the beginning of the script
+!	_xDistDoubleCircuit, _dxCircuitText:
+!						circuit text position. Constant, defined at the beginning of the script
+!	_stCircuitArray:	contains the Circuit string of the actual position
+! =============================================================================
+
+	! ===== Circuit text settings =====
+	set style "Circuit"
+
+	! ===== Move origo to centerpoint =====
+	pen gs_cont_pen_int
+	add2 0, -_dCircle/2
+	fill gs_fill_type
+	poly2_b 2, 1+2, gs_fill_pen, gs_back_pen,
+		0,	0, 901,
+		_dCircle/2,	360, 4001
+	for _i = 1 to 3
+		line2 0, 0, 0, _dCircle/2
+		rot2 120
+	next _i
+	del 4
+	pen fontPen
+	! ----- Text print 1 -----
+	add2 -_xDistDoubleCircuit*(_col-2) - _xDistDoubleCircuit*(_col-1),	-_dyCircuitText
+	gosub "checkAndSetAllTextReadability"
+	text2  0, 0, _stCircuitArray[1+_col*_col-1]
+	del 1 + _nTransReadability
+	_nTransReadability = 0
+	! ----- Text print 2 -----
+	add2 _xDistDoubleCircuit*(_col-2) + _xDistDoubleCircuit*(_col-1),	-_dyCircuitText
+	gosub "checkAndSetAllTextReadability"
+	text2  0, 0, _stCircuitArray[2+_col*_col-1]
+	del 1 + _nTransReadability
+	_nTransReadability = 0
+	! ----- Text print 3 -----	
+	add2 0,																-_yDistThirdCircuit
+	gosub "checkAndSetAllTextReadability"
+	text2  0, 0, _stCircuitArray[3+_col*_col-1]
+	del 1 + _nTransReadability
+	_nTransReadability = 0
+	pen gs_cont_pen
+return
+
+
+! =============================================================================
+"drawRJ45Symbol":
+! -----------------------------------------------------------------------------
+! Draw the RJ45 symbol from top middle point
+! -----------------------------------------------------------------------------
+! Input variables:
+!	_hModElevation:		the elevation of the element corrected by user defined floor thickness
+!	_zLowerLimitFillShift, _zUpperLimitFillShift:
+!						height to shift height dependent fill, Constant, defined at the beginning of the script
+!	_hModule:			module height if it is triangle (Plug, RJ45)
+!	_wTriangle: 		the width of RJ45 is same as the power plug symbol
+! =============================================================================
+
+	_bTriangleMirrored = 0
+	gosub "drawTriangleSymbolRJ"
+
+return
+
+
+! =============================================================================
+"drawAntennaSymbol":
+! -----------------------------------------------------------------------------
+! Draw the Antenna symbol from top middle point
+! -----------------------------------------------------------------------------
+! Input variables:
+!	_hModElevation:		the elevation of the element corrected by user defined floor thickness
+!	_zLowerLimitFillShift, _zUpperLimitFillShift:
+!						height to shift height dependent fill, Constant, defined at the beginning of the script
+!	_dCircle:			circle module diameter (used by same as _hModule). Constant, defined at the beginning of the script
+! =============================================================================
+
+	! ===== Fill, height dependent =====
+	if _hModElevation > _zLowerLimitFillShift then
+		if _hModElevation < _zUpperLimitFillShift + _EPS then
+			! ----- Between 0.3m and 1.3m -----
+			fill fillTypeCust1
+			poly2_b 3, 0+2+4, gs_cont_pen_tv, fillBackPenCust1,
+				0,	0,				1,
+				0,	-_dCircle/2,	901,
+				0,	180,			4001
+			fill gs_fill_type
+			poly2_b 3, 0+2+4, gs_cont_pen_tv, gs_back_pen,
+				0,	0,				1,
+				0,	-_dCircle/2,	901,
+				0,	-180,			4001
+
+		else
+			! ----- Above 1.3m -----
+			fill fillTypeCust1
+			poly2_b 2, 0+2, gs_cont_pen_tv, fillBackPenCust1,
+				0,	-_dCircle/2,	901,
+				_dCircle/2,	360,	4001
+		endif
+	else
+		! ----- Under 0.3m -----
+		fill gs_fill_type
+		poly2_b 2, 0+2, gs_fill_pen, gs_back_pen,
+			0,	-_dCircle/2,	901,
+			_dCircle/2,	360,	4001
+	endif
+	! ===== Circle contour =====
+	pen gs_cont_pen_tv
+	fill gs_fill_type
+	poly2_b 2, 1, gs_cont_pen_tv, gs_back_pen,
+		0,	-_dCircle/2,	901,
+		_dCircle/2,	360,	4001
+	! ===== Text print =====
+	pen fontPen
+	set style "TV"
+	add2 0, -_dCircle/2
+	gosub "checkAndSetAllTextReadability"
+	text2  0, 0, "TV"
+	del 1 + _nTransReadability
+	_nTransReadability = 0
+	pen gs_cont_pen
+return
+
+
+! =============================================================================
+"drawSimpleUsbSymbol":
+! -----------------------------------------------------------------------------
+! Draw the Simple Usb symbol from top middle point
+! -----------------------------------------------------------------------------
+
+	_bTriangleMirrored = 1
+	gosub "drawTriangleSymbolUSB"
+	add2	0, - _dyUsbSymbol - _hUsbSymbol/2
+	rot2 90
+	gosub "drawUsbSymbol"
+	del 2
+
+return
+
+
+! =============================================================================
+"drawDoubleUsbSymbol":
+! -----------------------------------------------------------------------------
+! Draw the Simple Usb symbol from top middle point
+! -----------------------------------------------------------------------------
+
+	_bTriangleMirrored = 1
+	gosub "drawTriangleSymbolUSB"
+
+	for _USBnum = 1 to 2
+		add2	(_wUsbSymbol/2 +  _dxUsbSymbols/2 ) * (-1)**_USBnum,\
+				- _dyUsbSymbol - _hUsbSymbol/2
+		gosub "drawUsbSymbol"
+		del 1
+	next _USBnum
+
+return
+
+
+! =============================================================================
+"drawUsbSymbol":
+! -----------------------------------------------------------------------------
+! Draw the Usb symbol from top middle point
+! -----------------------------------------------------------------------------
+! Input variables:
+!	_hModElevation:		the elevation of the element corrected by user defined floor thickness
+!	_zLowerLimitFillShift, _zUpperLimitFillShift:
+!						height to shift height dependent fill, Constant, defined at the beginning of the script
+!	_hModule:			module height if it is triangle (Plug, RJ45)
+!	_wTriangle: 	the width of RJ45 is same as the power plug symbol
+! =============================================================================
+
+	! ===== USB contour =====
+
+	pen gs_cont_pen_tusb
+
+	poly2_b 4, 1+4, gs_fill_pen, gs_back_pen,
+		+_wUsbSymbol/2,	-_hUsbSymbol/2,	1,
+		-_wUsbSymbol/2,	-_hUsbSymbol/2,	1,
+		-_wUsbSymbol/2,	+_hUsbSymbol/2,	1,
+		+_wUsbSymbol/2,	+_hUsbSymbol/2,	1
+	
+	poly2_b 2, 1+4, gs_fill_pen, gs_back_pen,
+		0,	-_lUsbCenterLine/2,	1,
+		0,	+_lUsbCenterLine/2,	1
+
+return
+
+
+! =============================================================================
+"drawTriangleSymbol":
+! -----------------------------------------------------------------------------
+! Draw the Triangle from top middle point to other symbols
+! -----------------------------------------------------------------------------
+! Input variables:
+!	_hModElevation:		the elevation of the element corrected by user defined floor thickness
+!	_zLowerLimitFillShift, _zUpperLimitFillShift:
+!						height to shift height dependent fill, Constant, defined at the beginning of the script
+!	_hModule:			module height if it is triangle (Plug, RJ45)
+!	_wTriangle: 		the width of RJ45 is same as the power plug symbol
+!	_bTriangleMirrored: the triangle is upside down
+! =============================================================================
+
+	_nTransTriangle = 0
+	! ===== Mirror triangle =====
+	if _bTriangleMirrored then
+		mul2 1, -1
+		add2 0, _hModule
+		_nTransTriangle = _nTransTriangle + 2
+	endif
+
+	! ===== Fill, height dependent =====
+	if _hModElevation > _zLowerLimitFillShift then
+		if _hModElevation < _zUpperLimitFillShift + _EPS then
+			! ----- Between 0.3m and 1.3m -----
+			fill fillTypeCust1
+			poly2_b 3, 0+2+4, gs_cont_pen_plugue, fillBackPenCust1,
+				0,				0,			1,
+				-_wTriangle,	-_hModule,	1,
+				0,				-_hModule,	1
+			fill gs_fill_type
+			poly2_b 3, 0+2+4, gs_cont_pen_plugue, fillBackPenCust1,
+				0,				0,			1,
+				_wTriangle,		-_hModule,	1,
+				0,				-_hModule,	1
+		else
+			! ----- Above 1.3m -----
+			fill fillTypeCust1
+			poly2_b 3, 0+2+4, 	gs_cont_pen_plugue, fillBackPenCust1,
+				0,				0,			1,
+				-_wTriangle,	-_hModule,	1,
+				_wTriangle,		-_hModule,	1
+		endif
+	else
+		! ----- Under 0.3m -----
+		fill gs_fill_type
+		poly2_b 3, 0+2+4, gs_fill_pen, gs_back_pen,
+			0,				0,			1,
+			-_wTriangle,	-_hModule,	1,
+			_wTriangle,		-_hModule,	1
+	endif
+
+	! ===== Triangle contour =====
+	fill gs_fill_type
+	pen gs_cont_pen_plugue
+	poly2_b 3, 1+4, gs_fill_pen, gs_back_pen,
+		0,				0,			1,
+		-_wTriangle,	-_hModule,	1,
+		_wTriangle,		-_hModule,	1
+
+	del _nTransTriangle
+return
+
+
+
+! =============================================================================
+"drawTriangleSymbolPM":
+! -----------------------------------------------------------------------------
+! Draw the Triangle from top middle point to other symbols
+! -----------------------------------------------------------------------------
+! Input variables:
+!	_hModElevation:		the elevation of the element corrected by user defined floor thickness
+!	_zLowerLimitFillShift, _zUpperLimitFillShift:
+!						height to shift height dependent fill, Constant, defined at the beginning of the script
+!	_hModule:			module height if it is triangle (Plug, RJ45)
+!	_wTriangle: 		the width of RJ45 is same as the power plug symbol
+!	_bTriangleMirrored: the triangle is upside down
+! =============================================================================
+
+	_nTransTriangle = 0
+	! ===== Mirror triangle =====
+	if _bTriangleMirrored then
+		mul2 1, -1
+		add2 0, _hModule
+		_nTransTriangle = _nTransTriangle + 2
+	endif
+
+	! ===== Fill, height dependent =====
+	if _hModElevation > _zLowerLimitFillShift then
+		if _hModElevation < _zUpperLimitFillShift + _EPS then
+			! ----- Between 0.3m and 1.3m -----
+			fill fillTypeCust1
+			poly2_b 3, 0+2+4, gs_cont_pen_pluguem, fillBackPenCust1,
+				0,				0,			1,
+				-_wTriangle,	-_hModule,	1,
+				0,				-_hModule,	1
+			fill gs_fill_type
+			poly2_b 3, 0+2+4, gs_cont_pen_pluguem, fillBackPenCust1,
+				0,				0,			1,
+				_wTriangle,		-_hModule,	1,
+				0,				-_hModule,	1
+		else
+			! ----- Above 1.3m -----
+			fill fillTypeCust1
+			poly2_b 3, 0+2+4, 	gs_cont_pen_pluguem, fillBackPenCust1,
+				0,				0,			1,
+				-_wTriangle,	-_hModule,	1,
+				_wTriangle,		-_hModule,	1
+		endif
+	else
+		! ----- Under 0.3m -----
+		fill gs_fill_type
+		poly2_b 3, 0+2+4, gs_fill_pen, gs_back_pen,
+			0,				0,			1,
+			-_wTriangle,	-_hModule,	1,
+			_wTriangle,		-_hModule,	1
+	endif
+
+	! ===== Triangle contour =====
+	fill gs_fill_type
+	pen gs_cont_pen_pluguem
+	poly2_b 3, 1+4, gs_fill_pen, gs_back_pen,
+		0,				0,			1,
+		-_wTriangle,	-_hModule,	1,
+		_wTriangle,		-_hModule,	1
+
+	del _nTransTriangle
+return
+
+
+
+! =============================================================================
+"drawTriangleSymbolRJ":
+! -----------------------------------------------------------------------------
+! Draw the Triangle from top middle point to other symbols
+! -----------------------------------------------------------------------------
+! Input variables:
+!	_hModElevation:		the elevation of the element corrected by user defined floor thickness
+!	_zLowerLimitFillShift, _zUpperLimitFillShift:
+!						height to shift height dependent fill, Constant, defined at the beginning of the script
+!	_hModule:			module height if it is triangle (Plug, RJ45)
+!	_wTriangle: 		the width of RJ45 is same as the power plug symbol
+!	_bTriangleMirrored: the triangle is upside down
+! =============================================================================
+
+	_nTransTriangle = 0
+	! ===== Mirror triangle =====
+	if _bTriangleMirrored then
+		mul2 1, -1
+		add2 0, _hModule
+		_nTransTriangle = _nTransTriangle + 2
+	endif
+
+	! ===== Fill, height dependent =====
+	if _hModElevation > _zLowerLimitFillShift then
+		if _hModElevation < _zUpperLimitFillShift + _EPS then
+			! ----- Between 0.3m and 1.3m -----
+			fill fillTypeCust1
+			poly2_b 3, 0+2+4, gs_cont_pen_rj, fillBackPenCust1,
+				0,				0,			1,
+				-_wTriangle,	-_hModule,	1,
+				0,				-_hModule,	1
+			fill gs_fill_type
+			poly2_b 3, 0+2+4, gs_cont_pen_rj, fillBackPenCust1,
+				0,				0,			1,
+				_wTriangle,		-_hModule,	1,
+				0,				-_hModule,	1
+		else
+			! ----- Above 1.3m -----
+			fill fillTypeCust1
+			poly2_b 3, 0+2+4, 	gs_cont_pen_rj, fillBackPenCust1,
+				0,				0,			1,
+				-_wTriangle,	-_hModule,	1,
+				_wTriangle,		-_hModule,	1
+		endif
+	else
+		! ----- Under 0.3m -----
+		fill gs_fill_type
+		poly2_b 3, 0+2+4, gs_fill_pen, gs_back_pen,
+			0,				0,			1,
+			-_wTriangle,	-_hModule,	1,
+			_wTriangle,		-_hModule,	1
+	endif
+
+	! ===== Triangle contour =====
+	fill gs_fill_type
+	pen gs_cont_pen_rj
+	poly2_b 3, 1+4, gs_fill_pen, gs_back_pen,
+		0,				0,			1,
+		-_wTriangle,	-_hModule,	1,
+		_wTriangle,		-_hModule,	1
+
+	del _nTransTriangle
+return
+
+
+! =============================================================================
+"drawTriangleSymbolUSB":
+! -----------------------------------------------------------------------------
+! Draw the Triangle from top middle point to other symbols
+! -----------------------------------------------------------------------------
+! Input variables:
+!	_hModElevation:		the elevation of the element corrected by user defined floor thickness
+!	_zLowerLimitFillShift, _zUpperLimitFillShift:
+!						height to shift height dependent fill, Constant, defined at the beginning of the script
+!	_hModule:			module height if it is triangle (Plug, RJ45)
+!	_wTriangle: 		the width of RJ45 is same as the power plug symbol
+!	_bTriangleMirrored: the triangle is upside down
+! =============================================================================
+
+	_nTransTriangle = 0
+	! ===== Mirror triangle =====
+	if _bTriangleMirrored then
+		mul2 1, -1
+		add2 0, _hModule
+		_nTransTriangle = _nTransTriangle + 2
+	endif
+
+	! ===== Fill, height dependent =====
+	if _hModElevation > _zLowerLimitFillShift then
+		if _hModElevation < _zUpperLimitFillShift + _EPS then
+			! ----- Between 0.3m and 1.3m -----
+			fill fillTypeCust1
+			poly2_b 3, 0+2+4, gs_cont_pen_usb, fillBackPenCust1,
+				0,				0,			1,
+				-_wTriangle,	-_hModule,	1,
+				0,				-_hModule,	1
+			fill gs_fill_type
+			poly2_b 3, 0+2+4, gs_cont_pen_usb, fillBackPenCust1,
+				0,				0,			1,
+				_wTriangle,		-_hModule,	1,
+				0,				-_hModule,	1
+		else
+			! ----- Above 1.3m -----
+			fill fillTypeCust1
+			poly2_b 3, 0+2+4, 	gs_cont_pen_usb, fillBackPenCust1,
+				0,				0,			1,
+				-_wTriangle,	-_hModule,	1,
+				_wTriangle,		-_hModule,	1
+		endif
+	else
+		! ----- Under 0.3m -----
+		fill gs_fill_type
+		poly2_b 3, 0+2+4, gs_fill_pen, gs_back_pen,
+			0,				0,			1,
+			-_wTriangle,	-_hModule,	1,
+			_wTriangle,		-_hModule,	1
+	endif
+
+	! ===== Triangle contour =====
+	fill gs_fill_type
+	pen gs_cont_pen_usb
+	poly2_b 3, 1+4, gs_fill_pen, gs_back_pen,
+		0,				0,			1,
+		-_wTriangle,	-_hModule,	1,
+		_wTriangle,		-_hModule,	1
+
+	del _nTransTriangle
+return
+
+
+
+! =============================================================================
+"checkAndSetValuesReadability":
+! -----------------------------------------------------------------------------
+! Rotate origo before text drawing in case of values if it's necessary
+! -----------------------------------------------------------------------------
+! Input variables:
+!	iTextAlwaysReadable:	It's a three-position switch. 
+!							If it's 0, then texts rotates with the symbol.
+!							If it's 1 then just the values (height and potency) 
+!								rotates to always readable positions.
+!							If it's 2 then all texts (including circuit and 
+!								symbol texts) rotates
+!	_totalRotate:			the full rotation of the view and the element
+! =============================================================================
+
+	if (iTextAlwaysReadable = READABLE_VALUES | iTextAlwaysReadable = READABLE_ALL) &\
+	  (_totalRotate > (90 + _EPS) & _totalRotate < (270 + _EPS)) AND GLOB_VIEW_TYPE <> 9	then
+		rot2 180
+		_nTransReadability = 1
+	endif
+
+return
+
+
+! =============================================================================
+"checkAndSetAllTextReadability":
+! -----------------------------------------------------------------------------
+! Rotate origo before text drawing in case of all text if it's necessary
+! -----------------------------------------------------------------------------
+! Input variables:
+!	iTextAlwaysReadable:	It's a three-position switch. 
+!							If it's 0, then texts rotates with the symbol.
+!							If it's 1 then just the values (height and potency) 
+!								rotates to always readable positions.
+!							If it's 2 then all texts (including circuit and 
+!								symbol texts) rotates
+!	_totalRotate:			the full rotation of the view and the element
+! =============================================================================
+
+	if iTextAlwaysReadable = READABLE_ALL							&\
+	  (_totalRotate > (90 + _EPS) & _totalRotate < (270 + _EPS)) AND GLOB_VIEW_TYPE <> 9	then
+		rot2 180
+		_nTransReadability = 1
+	endif
+
+return
+

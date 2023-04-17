@@ -1,0 +1,695 @@
+
+pen gs_cont_pen
+! =============================================================================
+! 3D Detail Level
+! =============================================================================
+
+_iDetlevel3D = DETLEVEL_3D_DETAILED
+call "DetlevelFunctionMacro" parameters	iDetlevel3D	= iDetlevel3D,
+								returned_parameters _iDetlevel3D
+
+if _iDetlevel3D = DETLEVEL_3D_OFF then end
+
+! =============================================================================
+! Variables
+! =============================================================================
+
+_nTrans			= 0
+
+! -----------------------------------------------------------------------------
+! Constant sizes
+! -----------------------------------------------------------------------------
+
+! ===== Module =====
+_wModule			= 0.045
+_hModule			= 0.025
+
+! ===== Modules distance =====
+_dModulesTwoRow		= 0.02
+_dModulesBase		= 0.005
+! ===== Plug =====
+_wPlug				= 0.038
+_hPlug				= _wPlug/2
+_yPosPlugHoleCenter	= 0.0054
+_rPlugHole			= 0.0024
+
+! ===== Switch =====
+_wSwitch			= _wModule/2 - 0.0015
+_hSwitch			= _hModule/2 - 0.0015
+! ===== arcus tangent of switch bend =====
+_arcTanSw			= 0.2
+! ===== switch lever =====
+_rSwitchLever		= 0.0005
+
+! ===== RJ45 =====
+_xRJ45A 			= 0.006		
+_yRJ45A 			= 0.0015	 
+_xRJ45C 			= 0.004		
+_yRJ45C 			= 0.006		
+_xRJ45B 			= _xRJ45C	!		↑
+_yRJ45B 			= _yRJ45A	!    C╔═│══╗D
+_yRJ45D 			= _yRJ45C	! A ╔═╝B│  ║ 
+_xRJ45D 			= _yRJ45D	!  ─────┼────→
+								!   ╚═╗ │  ║ 
+								!     ╚═│══╝ 
+! ===== USB =====
+_widthHalfUSB		= 0.00225
+_heightHalfUsb		= 0.006
+_distHalfDoubleUsb	= 0.005
+
+! ===== Floor Plug =====
+_rFloorPlugCircle	= 0.0246
+_wFloorPlugRect		= 0.0201
+_hFloorPlugRect		= 0.01035
+_hFloorPlug			= 2*_rFloorPlugCircle + _hFloorPlugRect
+_wFloorPlug			= 2*_rFloorPlugCircle
+
+! -----------------------------------------------------------------------------
+! Initialize modifiable variable
+! -----------------------------------------------------------------------------
+
+! ===== number of cuts in module cut matrix subroutine =====
+_iNumCuts 			= 0
+
+! =============================================================================
+! Position: Floor
+! =============================================================================
+
+if iPosition = POSITION_FLOOR then
+	rotx -90
+	_nTrans = _nTrans + 1
+endif	
+
+! =============================================================================
+! Position: Ceiling
+! =============================================================================
+
+if iceiling = 1 and iPosition = POSITION_FLOOR then
+	rotx 180
+	_nTrans = _nTrans + 1
+endif	
+
+! =============================================================================
+! Orientation: Vertical
+! =============================================================================
+
+if iPlateOrientation = VERTICAL then
+	roty -90
+	_nTrans = _nTrans + 1
+endif
+
+! =============================================================================
+! Hotspots
+! =============================================================================
+
+! -----------------------------------------------------------------------------
+! Center and height modify
+! -----------------------------------------------------------------------------
+_unID = 1
+hotspot 0,								-thickPlate,	0,										_unID : _unID = _unID + 1
+
+! -----------------------------------------------------------------------------
+! Box corners
+! -----------------------------------------------------------------------------
+hotspot -widthBox/2,					depthBox,		-heightBox/2,							_unID : _unID = _unID + 1
+hotspot -widthBox/2,					depthBox,		heightBox/2,							_unID : _unID = _unID + 1
+hotspot widthBox/2,						depthBox,		-heightBox/2,							_unID : _unID = _unID + 1
+hotspot widthBox/2,						depthBox,		heightBox/2,							_unID : _unID = _unID + 1
+
+! -----------------------------------------------------------------------------
+! Plate corners and top
+! -----------------------------------------------------------------------------
+hotspot -widthPlate/2,					-thickPlate,	-heightPlate/2,							_unID : _unID = _unID + 1
+hotspot widthPlate/2,					-thickPlate,	heightPlate/2,							_unID : _unID = _unID + 1
+hotspot widthPlate/2,					-thickPlate,	-heightPlate/2,							_unID : _unID = _unID + 1
+hotspot -widthPlate/2,					-thickPlate,	heightPlate/2,							_unID : _unID = _unID + 1
+hotspot widthPlate/2*iPlateOrientation,	0,				heightPlate/2*not(iPlateOrientation),	_unID : _unID = _unID + 1
+
+! =============================================================================
+! Subroutines
+! =============================================================================
+
+if _iDetlevel3D = DETLEVEL_3D_DETAILED then
+	gosub "Detailed"
+else
+	gosub "Schematic"
+endif
+
+del _nTrans
+
+! =============================================================================
+end
+! =============================================================================
+
+! =============================================================================
+"Schematic":
+! -----------------------------------------------------------------------------
+! Draws a block with Plate width and height, and plate+box depth
+! =============================================================================
+
+	add -widthPlate/2, -thickPlate, -heightPlate/2
+	material surfPlate
+	block widthPlate, thickPlate + depthBox, heightPlate
+	del 1
+return
+
+
+! =============================================================================
+"Detailed":
+! -----------------------------------------------------------------------------
+! Draws the detailed model
+! -----------------------------------------------------------------------------
+! Input parameters:
+!	iTypePlate:		the modules' rows depends on it
+!	iPosition:		the position of the item (wall/floor)
+!	widthBox:		width of the box in wall
+!	heightBox:		height of the box in wall
+!	depthBox:		depth of the box in wall
+! Input variables:
+!	_dModulesBase:	the base vertical distance between two modul
+!	_iNumCuts:		the number of cutform commands
+!					defined in "OneModuleSpaceCut" subroutine
+! Output variables:
+!	_iNumRows:		number of modules' rows
+!	_dModules:		the applied vertical distance between two modul
+! =============================================================================
+
+	! -------------------------------------------------------------------------
+	! Row's number variable
+	! -------------------------------------------------------------------------
+
+	_iNumRows = iTypePlate
+	if iTypePlate = PLATE_ONE_VERT then _iNumRows = 1
+	if iTypePlate = PLATE_TWO_VERT then _iNumRows = 2
+
+	! -------------------------------------------------------------------------
+	! Distance Between Modules
+	! -------------------------------------------------------------------------
+
+	_dModules = _dModulesBase
+	if iTypePlate = PLATE_ONE_VERT | iTypePlate = PLATE_TWO_VERT then
+		_dModules = 0
+	endif
+
+	! -------------------------------------------------------------------------
+	! Box
+	! -------------------------------------------------------------------------
+
+	add -widthBox/2, 0, -heightBox/2
+	material surfBox
+	block widthBox, depthBox, heightBox
+	del 1
+
+	! -------------------------------------------------------------------------
+	! Plate
+	! -------------------------------------------------------------------------
+
+	! ===== Modul spaces =====
+	if iPosition = POSITION_WALL & iTypePlate # PLATE_BLANK then
+		gosub "CutSpaceMatrix"
+	endif
+	
+	! ===== Plate block ===== 
+	add -widthPlate/2, -thickPlate, -heightPlate/2
+	material surfPlate
+	block widthPlate, thickPlate, heightPlate
+	del 1
+	
+	! ===== Cutend =====
+	for i = 1 to _iNumCuts
+		cutend
+	next i
+	
+	! -------------------------------------------------------------------------
+	! Modules
+	! -------------------------------------------------------------------------
+	
+	if iPosition = POSITION_FLOOR then
+		gosub "DrawFloorModules"
+	else
+		gosub "DrawWallModules"
+	endif
+return
+
+
+! =============================================================================
+"DrawWallModules":
+! -----------------------------------------------------------------------------
+! Navigate to the module drawer subroutine and positioning modules
+! -----------------------------------------------------------------------------
+! Input parameters:
+! 	iBoxSize:		number of columns equal with the number.
+! 	iTypePlate:		modules orientation, position, and distance depends on it
+!					4x2 Box - 1 column, 4x4 Box - 2 columns
+! 	widthPlate:		position of module depends on plate width
+! Input variables:
+! 	_iNumRows:		number of rows, we need to draw. Depends on iPlateType,
+!					defined in "Detailed" subroutine
+! 	_iTypeModulArray: 	contains the module type of the actual position
+! =============================================================================
+
+	material surfModule
+
+	! ====== Variable =====
+	_bRotated = 0
+
+	! ====== Start position =====
+	addx (iBoxSize-1)*(-1)*widthPlate/4
+	if iTypePlate = PLATE_ONE_VERT | iTypePlate = PLATE_TWO_VERT then
+		roty 90
+		_bRotated = 1
+	endif
+	if _iNumRows = 2 then addz (_hModule/2 + _dModules/2)*(not(_bRotated)-_bRotated)
+	if iTypePlate = PLATE_THREE_ROW then addz _hModule + _dModules
+	rotx 180
+
+	! ====== Loop from first to #iBoxSize column =====
+	for _col = 1 to iBoxSize
+		! ====== Loop from first to #_iNumRows th row =====
+		for _row = 1 to _iNumRows
+			! ----- Blind -----
+			if _iTypeModulArray[_row+_col*_col-1] = MODULE_BLIND gosub "drawBlindModule"
+
+			! ----- Plug and mixed plug -----
+			if	_iTypeModulArray[_row+_col*_col-1] = MODULE_PLUG | \
+				_iTypeModulArray[_row+_col*_col-1] = MODULE_PLUG_MIXED gosub "drawPowerPlugModule"
+	
+			! ----- Switch -----
+			if _iTypeModulArray[_row+_col*_col-1] = MODULE_SWITCH gosub "drawSwitchModule"
+	
+			! ----- RJ45 -----
+			if _iTypeModulArray[_row+_col*_col-1] = MODULE_RJ45 gosub "drawRJ45Module"
+
+			! ----- Simple USB -----
+			if _iTypeModulArray[_row+_col*_col-1] = MODULE_1_USB gosub "drawSimpleUsbModule"
+
+			! ----- Double USB -----
+			if _iTypeModulArray[_row+_col*_col-1] = MODULE_2_USB gosub "drawDoubleUsbModule"
+
+			! ----- Antenna -----
+			if _iTypeModulArray[_row+_col*_col-1] = MODULE_ANTENNA gosub "drawBlindModule"
+
+			addz (_hModule + _dModules)*(not(_bRotated)-_bRotated)
+		next _row
+		del _row-1
+
+		! ====== Position of second column =====
+		add widthPlate/2 * not(_bRotated), 0, (-1)*widthPlate/2 * _bRotated
+
+	next _col
+	del _col-1
+return
+
+
+! =============================================================================
+"DrawFloorModules":
+! -----------------------------------------------------------------------------
+! Navigate to the module drawer subroutine and positioning modules
+! -----------------------------------------------------------------------------
+! Input Parameters:
+! 	iTypePlate:		modules orientation, position, and distance depends on it
+! 	widthPlate:		position of module depends on plate width
+! =============================================================================
+
+	if iTypePlate # PLATE_BLANK then
+		if iTypePlate = PLATE_ONE_PLUG then
+			gosub "drawFloorPlug"
+		else		!	PLATE_TWO_PLUG
+			addx -widthPlate/4
+			_nTrans = _nTrans + 1
+			gosub "drawFloorPlug"
+			addx widthPlate/2
+			_nTrans = _nTrans + 1
+			gosub "drawFloorPlug"
+		endif
+	endif
+return
+
+
+! =============================================================================
+"CutSpaceMatrix":
+! -----------------------------------------------------------------------------
+! Defines the cutting elements' places
+! -----------------------------------------------------------------------------
+! Input Parameters:
+!	iTypePlate:		modules orientation, position, and distance depends on it
+! 	iBoxSize:		number of columns equal with the number.
+! Input variables:
+!	_dModules:		distance between two modul in a column
+!	_dModulesTwoRow: distance between moduls if there is only two modules
+!	_hModule:		module height
+!	_iNumRows:		number of rows, we need to draw. Depends on iPlateType,
+!					defined in "Detailed" subroutine
+! =============================================================================
+	_nTransCutSpace = 0
+	_bRotated = 0
+	addx (iBoxSize-1)*(-1)*widthPlate/4
+	if iTypePlate = PLATE_ONE_VERT | iTypePlate = PLATE_TWO_VERT then
+		roty 90
+		_bRotated = 1
+	endif
+	if iTypePlate = PLATE_TWO_ROW then _dModules = _dModulesTwoRow
+	if _iNumRows = 2 then
+		addz _hModule/2 + _dModules/2
+		_nTransCutSpace = _nTransCutSpace + 1
+	endif
+	if iTypePlate = PLATE_THREE_ROW then
+		addz _hModule + _dModules
+		_nTransCutSpace = _nTransCutSpace + 1
+	endif
+
+	for _col = 1 to iBoxSize
+		for _row = 1 to _iNumRows
+			gosub "OneModuleSpaceCut"
+			addz -_hModule - _dModules
+		next _row
+		del _row-1
+		add widthPlate/2 * not(_bRotated), 0, widthPlate/2 * _bRotated
+	next _col
+	del _col + _nTransCutSpace + _bRotated
+return
+
+
+! =============================================================================
+"OneModuleSpaceCut":
+! -----------------------------------------------------------------------------
+! Defines 1 cutting element
+! -----------------------------------------------------------------------------
+! Input Parameters:
+!	thickPlate:	the thickness of the plate, the depth of the cutform depends on it
+! Input variables:
+!	_wModule:	the width of a module. Constant, defined at the beginning of the script
+!	_hModule:	the height of a module. Constant, defined at the beginning of the script
+! Output variables:
+!	_iNumCuts:	the number of cutform commands, need to end the cuts
+!				after defined the cutted element (the plane in this case)
+! =============================================================================
+
+	rotx 90
+	cutform 4, 1, 1,
+			0, 0, 1, thickPlate,
+			-_wModule/2, -_hModule/2, 8+16,
+			 _wModule/2, -_hModule/2, 8+16,
+			 _wModule/2,  _hModule/2, 8+16,
+			-_wModule/2,  _hModule/2, 8+16
+	_iNumCuts = _iNumCuts + 1
+	del 1
+return
+
+
+! =============================================================================
+"drawBlindModule":
+! -----------------------------------------------------------------------------
+! Draws the blind module
+! =============================================================================
+
+	add -_wModule/2, 0, -_hModule/2
+	block _wModule, thickPlate*1.1, _hModule
+	del 1
+return
+
+
+! =============================================================================
+"drawPowerPlugModule":
+! -----------------------------------------------------------------------------
+! Draws the Plug module
+! -----------------------------------------------------------------------------
+! Input parameters:
+!	iTypePlate:			 the module orientation depends on it
+!						 4 (one module vertical)& 5(two module vertical) have vertical modulespaces
+!	thickPlate:			 the thickness of the plate, the thickness of the module depends on it
+! Input variables:
+!	_hModule:			 the height of a module. Constant, defined at the beginning of the script
+!	_hPlug:				 the height of plug hole. Constant, defined at the beginning of the script
+!	_rPlugHole:			 the radius of the plug's stick hole
+!	_wModule:			 the width of a module. Constant, defined at the beginning of the script
+!	_wPlug:				 the width of plug hole. Constant, defined at the beginning of the script
+!	_yPosPlugHoleCenter: the distance of the center of middle plug's stick from vertical axis
+! =============================================================================
+	_nTransPlug = 0
+	rotx -90
+	if iTypePlate > 3 then
+		rotz 180
+		_nTransPlug = 1
+	endif
+	prism_ 12, thickPlate*1.1,
+			-_wModule/2, -_hModule/2,	15,
+			 _wModule/2, -_hModule/2,	15,
+			 _wModule/2,  _hModule/2,	15,
+			-_wModule/2,  _hModule/2,	15,
+			-_wModule/2, -_hModule/2,	-1,
+			-_wPlug/2,		 0,		 	15,
+			-_hPlug/2,		 _hPlug/2, 	15,
+			 _hPlug/2,		 _hPlug/2,	15,
+			 _wPlug/2,		 0,			15,
+			 _hPlug/2,		-_hPlug/2,	15,
+			-_hPlug/2,		-_hPlug/2,	15,
+			-_wPlug/2,		 0,		 	-1
+
+	prism_ 22, thickPlate/2,
+			-_wPlug/2,			 0,	 							15,
+			-_hPlug/2,		 _hPlug/2, 							15,
+			 _hPlug/2,		 _hPlug/2,							15,
+			 _wPlug/2,			 0,								15,
+			 _hPlug/2,		-_hPlug/2,							15,
+			-_hPlug/2,		-_hPlug/2,							15,
+			-_wPlug/2,			 0,	 							-1,
+
+			 0,				 _yPosPlugHoleCenter,				79,
+			 0,				 _yPosPlugHoleCenter-_rPlugHole,	900,
+			 0,				 180,								4079,
+			 0,				 180,								4079,
+			 0,				 _rPlugHole,						-1,
+
+			 _hPlug/2,		 _rPlugHole,						79,
+			 _hPlug/2,		 0,									900,
+			 0,				 180,								4079,
+			 0,				 180,								4079,
+			 _hPlug/2,		 0,									-1,
+
+			-_hPlug/2,		 _rPlugHole,						79,
+			-_hPlug/2,		 0,									900,
+			 0,				 180,								4079,
+			 0,				 180,								4079,
+			-_hPlug/2,		 0,									-1
+	del 1 + _nTransPlug
+return
+
+
+! =============================================================================
+"drawSwitchModule":
+! -----------------------------------------------------------------------------
+! Draws the Switch module
+! -----------------------------------------------------------------------------
+! Input parameters:
+!	iTypePlate:		the module orientation depends on it
+!					4 (one module vertical)& 5(two module vertical) have vertical modulespaces
+!	thickPlate:		the thickness of the plate, the thickness of the module depends on it
+! Input variables:
+!	_hModule:		the height of a module. Constant, defined at the beginning of the script
+!	_hSwitch:		the height of switch. Constant, defined at the beginning of the script, depends on _hModule
+!	_rPlugHole:		the radius of the plug's stick hole
+!	_wModule:		the width of a module. Constant, defined at the beginning of the script
+!	_wSwitch:		the width of switch. Constant, defined at the beginning of the script depends on _wModule
+!	_rSwitchLever:	radius of the little lever on switch. Constant, defined at the beginning of the script
+!	_arcTanSw:		rate of the switch's angle. Constant, defined at the beginning of the script
+! =============================================================================
+	_nTransSwitch = 0
+	rotx -90
+	if iTypePlate > 3 then
+		rotz 180
+		_nTransSwitch = 1
+	endif
+	prism_ 10, thickPlate*1.1,
+				-_wModule/2,	-_hModule/2,	15,
+				_wModule/2,		-_hModule/2,	15,
+				_wModule/2,	 	 _hModule/2,	15,
+				-_wModule/2,	 _hModule/2,	15,
+				-_wModule/2,	-_hModule/2,	-1,
+				-_wSwitch,		-_hSwitch,		15,
+				_wSwitch,		-_hSwitch,		15,
+				_wSwitch,		 _hSwitch,		15,
+				-_wSwitch,		 _hSwitch,		15,
+				-_wSwitch,		-_hSwitch,		-1
+
+	sprism_ surfModule, surfModule, surfModule,
+			5,	0, 0, 0, 1, thickPlate*1.1, atn(_arcTanSw*thickPlate/_wModule*2),
+				-_wSwitch, -_hSwitch,	15,
+				_wSwitch, -_hSwitch,	15,
+				_wSwitch,  _hSwitch,	15,
+				-_wSwitch,  _hSwitch,	15,
+				-_wSwitch, -_hSwitch,	-1
+
+	add 0.9*_wSwitch, 0.5*_hSwitch, thickPlate*(1.1+0.9*_arcTanSw)
+	rotx 90
+
+	prism_ 3, _hSwitch,
+			_rSwitchLever,	_rSwitchLever*_arcTanSw, 15,
+			0,				0,						915,
+			0,				180,					4015
+
+	del 3 + _nTransSwitch
+return
+
+
+! =============================================================================
+"drawRJ45Module":
+! -----------------------------------------------------------------------------
+! Draws the RJ45 module
+! -----------------------------------------------------------------------------
+! Input parameters:
+!	thickPlate:		the thickness of the plate, the thickness of the module depends on it
+! Input variables:
+!	_hModule:		the height of a module. Constant, defined at the beginning of the script
+!	_rPlugHole:		the radius of the plug's stick hole
+!	_wModule:		the width of a module. Constant, defined at the beginning of the script
+!	_xRJ45A 	 	̅ \
+!	_yRJ45A 		 /		coordinates of RJ45 hole contour
+!	_xRJ45C 		 |			  ↑
+!	_yRJ45C 		  \		   C╔═│══╗D
+!	_xRJ45B 		  /		A ╔═╝B│  ║
+!	_yRJ45B 		 |		 ─────┼────→
+!	_yRJ45D 		 \		  ╚═╗ │  ║
+!	_xRJ45D 		̲ /		     ╚═│══╝
+! =============================================================================
+
+	rotx -90
+	prism_ 5, 0.001,
+			-_wModule/2, -_hModule/2,	15,
+			 _wModule/2, -_hModule/2,	15,
+			 _wModule/2,  _hModule/2,	15,
+			-_wModule/2,  _hModule/2,	15,
+			-_wModule/2, -_hModule/2,	-1
+
+	addz 0.001
+
+	prism_ 14, 1.1 * thickPlate - 0.001,
+			-_wModule/2, -_hModule/2,	15,
+			 _wModule/2, -_hModule/2,	15,
+			 _wModule/2,  _hModule/2,	15,
+			-_wModule/2,  _hModule/2,	15,
+			-_wModule/2, -_hModule/2,	-1,
+			-_xRJ45A,	_yRJ45A,	15,
+			-_xRJ45B,	_yRJ45B,	15,
+			-_xRJ45C,	_yRJ45C,	15,
+			_xRJ45D,	_yRJ45D,	15,
+			_xRJ45D,	-_yRJ45D,	15,
+			-_xRJ45C,	-_yRJ45C,	15,
+			-_xRJ45B,	-_yRJ45B,	15,
+			-_xRJ45A,	-_yRJ45A,	15,
+			-_xRJ45A,	_yRJ45A,	-1
+	del 2
+return
+
+
+! =============================================================================
+"drawSimpleUsbModule":
+! -----------------------------------------------------------------------------
+! Draws the RJ45 module
+! -----------------------------------------------------------------------------
+! Input parameters:
+!	thickPlate:			the thickness of the plate, the thickness of the module depends on it
+! Input variables:
+!	_hModule:			the height of a module. Constant, defined at the beginning of the script
+!	_widthHalfUSB:		Half width of the usb hole
+!	_heightHalfUsb:		Half height of the usb hole
+! =============================================================================
+
+	rotx -90
+	prism_ 5, 0.001,
+			-_wModule/2, -_hModule/2,	15,
+			 _wModule/2, -_hModule/2,	15,
+			 _wModule/2,  _hModule/2,	15,
+			-_wModule/2,  _hModule/2,	15,
+			-_wModule/2, -_hModule/2,	-1
+
+	addz 0.001
+
+	prism_ 10, 1.1 * thickPlate - 0.001,
+			-_wModule/2, -_hModule/2,	15,
+			 _wModule/2, -_hModule/2,	15,
+			 _wModule/2,  _hModule/2,	15,
+			-_wModule/2,  _hModule/2,	15,
+			-_wModule/2, -_hModule/2,	-1,
+			_heightHalfUsb,			-_widthHalfUSB,		15,
+			-_heightHalfUsb,		-_widthHalfUSB,		15,
+			-_heightHalfUsb,		_widthHalfUSB,		15,
+			_heightHalfUsb,			_widthHalfUSB,		15,
+			_heightHalfUsb,			-_widthHalfUSB,		-1
+	del 2
+return
+
+
+! =============================================================================
+"drawDoubleUsbModule":
+! -----------------------------------------------------------------------------
+! Draws the RJ45 module
+! -----------------------------------------------------------------------------
+! Input parameters:
+!	thickPlate:			the thickness of the plate, the thickness of the module depends on it
+! Input variables:
+!	_hModule:			the height of a module. Constant, defined at the beginning of the script
+!	_widthHalfUSB:		Half width of the usb hole
+!	_heightHalfUsb:		Half height of the usb hole
+!	_distHalfDoubleUsb:	Distance between two usb holes
+! =============================================================================
+
+	rotx -90
+	prism_ 5, 0.001,
+			-_wModule/2, -_hModule/2,	15,
+			 _wModule/2, -_hModule/2,	15,
+			 _wModule/2,  _hModule/2,	15,
+			-_wModule/2,  _hModule/2,	15,
+			-_wModule/2, -_hModule/2,	-1
+
+	addz 0.001
+
+	prism_ 15, 1.1 * thickPlate - 0.001,
+			-_wModule/2, -_hModule/2,	15,
+			 _wModule/2, -_hModule/2,	15,
+			 _wModule/2,  _hModule/2,	15,
+			-_wModule/2,  _hModule/2,	15,
+			-_wModule/2, -_hModule/2,	-1,
+			-_widthHalfUSB + _distHalfDoubleUsb,	_heightHalfUsb,		15,
+			-_widthHalfUSB + _distHalfDoubleUsb,	-_heightHalfUsb,	15,
+			_widthHalfUSB + _distHalfDoubleUsb,		-_heightHalfUsb,	15,
+			_widthHalfUSB + _distHalfDoubleUsb,		_heightHalfUsb,		15,
+			-_widthHalfUSB + _distHalfDoubleUsb,	_heightHalfUsb,		-1,
+			-_widthHalfUSB - _distHalfDoubleUsb,	_heightHalfUsb,		15,
+			-_widthHalfUSB - _distHalfDoubleUsb,	-_heightHalfUsb,	15,
+			_widthHalfUSB - _distHalfDoubleUsb,		-_heightHalfUsb,	15,
+			_widthHalfUSB - _distHalfDoubleUsb,		_heightHalfUsb,		15,
+			-_widthHalfUSB - _distHalfDoubleUsb,	_heightHalfUsb,		-1
+	del 2
+return
+
+
+! =============================================================================
+"drawFloorPlug":
+! -----------------------------------------------------------------------------
+! Draws the Plug cover to the Plate
+! -----------------------------------------------------------------------------
+! Input parameters:
+!	thickPlate:			the thickness of the plate
+! Input variables:
+!	_rFloorPlugCircle:	radius of the cover's round part
+!	_hFloorPlugRect:	height of the cover's rectangular part
+!	_wFloorPlugRect:	width of the cover's rectangular part
+!	_hFloorPlug:		height of the full cover
+! =============================================================================
+
+	rotx 90
+	addz thickPlate
+	poly_ 8,
+		_rFloorPlugCircle,	_hFloorPlugRect/2,	15,
+		0,					_hFloorPlugRect/2, 915,
+		0,					270 - asn(_wFloorPlugRect/2/_rFloorPlugCircle),			4015,
+		-_wFloorPlugRect/2,	-_hFloorPlug/2,	15,
+		_wFloorPlugRect/2,	-_hFloorPlug/2,	15,
+		_wFloorPlugRect/2,	_hFloorPlugRect/2 - sqr(_rFloorPlugCircle**2 - (_wFloorPlugRect/2)**2), 15,
+		_rFloorPlugCircle,	_hFloorPlugRect/2,	3015,
+		0,					0,				700
+	del 2
+
+return
+

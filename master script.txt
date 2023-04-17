@@ -1,0 +1,205 @@
+
+
+! ===== Module parameters Arrais =====
+! -----	Module Type									Circuit								Potency -----
+dim _iTypeModulArray[6]			 		, 		_stCircuitArray[6]				, 		_stPotencyArray[6]
+	_iTypeModulArray[1] = iTypeModulA	:		_stCircuitArray[1] = CircuitA	:		_stPotencyArray[1] = PotencyA
+	_iTypeModulArray[2] = iTypeModulB	:		_stCircuitArray[2] = CircuitB	:		_stPotencyArray[2] = PotencyB
+	_iTypeModulArray[3] = iTypeModulC	:		_stCircuitArray[3] = CircuitC	:		_stPotencyArray[3] = PotencyC
+	_iTypeModulArray[4] = iTypeModulD	:		_stCircuitArray[4] = CircuitD	:		_stPotencyArray[4] = PotencyD
+	_iTypeModulArray[5] = iTypeModulE	:		_stCircuitArray[5] = CircuitE	:		_stPotencyArray[5] = PotencyE
+	_iTypeModulArray[6] = iTypeModulF	:		_stCircuitArray[6] = CircuitF	:		_stPotencyArray[6] = PotencyF
+
+dim _stParamiTypeModulArray[6]             		,	_stParamCircuitArray[6]					,	_stParamPotencyArray[6]
+	_stParamiTypeModulArray[1] = "iTypeModulA"	:	_stParamCircuitArray[1] = "CircuitA"	:	_stParamPotencyArray[1] = "PotencyA"
+	_stParamiTypeModulArray[2] = "iTypeModulB"	:	_stParamCircuitArray[2] = "CircuitB"	:	_stParamPotencyArray[2] = "PotencyB"
+	_stParamiTypeModulArray[3] = "iTypeModulC"	:	_stParamCircuitArray[3] = "CircuitC"	:	_stParamPotencyArray[3] = "PotencyC"
+	_stParamiTypeModulArray[4] = "iTypeModulD"	:	_stParamCircuitArray[4] = "CircuitD"	:	_stParamPotencyArray[4] = "PotencyD"
+	_stParamiTypeModulArray[5] = "iTypeModulE"	:	_stParamCircuitArray[5] = "CircuitE"	:	_stParamPotencyArray[5] = "PotencyE"
+	_stParamiTypeModulArray[6] = "iTypeModulF"	:	_stParamCircuitArray[6] = "CircuitF"	:	_stParamPotencyArray[6] = "PotencyF"
+
+
+! ===== const values for parameter:	iTypePlate =====
+PLATE_BLANK				= 0
+
+! ----- Floor -----
+PLATE_ONE_PLUG			= 1
+PLATE_TWO_PLUG			= 2
+
+! ----- Wall -----
+PLATE_ONE_ROW			= 1
+PLATE_TWO_ROW			= 2
+PLATE_THREE_ROW			= 3
+PLATE_ONE_VERT			= 4
+PLATE_TWO_VERT			= 5
+
+! ===== const values for parameter:	iTypeModul =====
+MODULE_BLIND			= 1
+MODULE_PLUG				= 2
+MODULE_PLUG_MIXED		= 3
+MODULE_SWITCH			= 4
+MODULE_RJ45				= 5
+MODULE_ANTENNA			= 6
+MODULE_1_USB			= 7
+MODULE_2_USB			= 8
+
+! ===== const values for parameter:	iPlateOrientation =====
+VERTICAL				= 1
+HORIZONTAL				= 0
+
+! ===== const values for parameter:	iDetlevel3D =====
+DETLEVEL_3D_MVO			= 1
+DETLEVEL_3D_SCSENS		= 2
+DETLEVEL_3D_DETAILED	= 3
+DETLEVEL_3D_SIMPLE		= 4
+DETLEVEL_3D_DRAFT		= 5
+DETLEVEL_3D_OFF			= 6
+
+! ===== const values for parameter:	iPosition =====
+POSITION_WALL			= 0
+POSITION_FLOOR			= 1
+
+! ===== const values for parameter:	iBoxSize =====
+BOXSIZE_SIMPLE			= 1
+BOXSIZE_DOUBLE			= 2
+
+! ===== const values for parameter:	iTextAlwaysReadable =====
+READABLE_NOTHING		= 0
+READABLE_VALUES			= 1
+READABLE_ALL			= 2
+
+
+! ===== Modul Type Values =====
+dim	stTypeModulValues[8]
+	stTypeModulValues[1] = `Cego`
+	stTypeModulValues[2] = `Plugue`
+	stTypeModulValues[3] = `Plugue (Potência mista)`
+	stTypeModulValues[4] = `Interruptor`
+	stTypeModulValues[5] = `RJ45`
+	stTypeModulValues[6] = `Antena`
+	stTypeModulValues[7] = `1 USB`
+	stTypeModulValues[8] = `2 USB`
+
+
+! ===== Plate Type parameters Arrais =====
+dim _stTypePlateNameArray[]
+	_stTypePlateNameArray[1] = `1 Plugue`
+	_stTypePlateNameArray[2] = `2 Plugues`
+	_stTypePlateNameArray[3] = `1 Módulo`
+	_stTypePlateNameArray[4] = `2 Módulos`	! two row, one column
+	_stTypePlateNameArray[5] = `3 Módulos`
+	_stTypePlateNameArray[6] = `1 Módulo vertical`
+	_stTypePlateNameArray[7] = `2 Módulos verticais`
+	_stTypePlateNameArray[8] = `Vazio`
+	_stTypePlateNameArray[9] = `2 Módulos`	! one row, two column
+	_stTypePlateNameArray[10] = `4 Módulos`
+	_stTypePlateNameArray[11] = `6 Módulos`
+	_stTypePlateNameArray[12] = `2x2 Módulos - verticais`
+
+if iPosition = POSITION_FLOOR then
+	if iBoxSize = BOXSIZE_SIMPLE then 
+		dim _iTypePlateArray[1]
+		dim _stTypePlateArray[1]
+		_iTypePlateArray[1] = PLATE_ONE_PLUG
+		_stTypePlateArray[1] = _stTypePlateNameArray[1]
+	endif
+	if iBoxSize = BOXSIZE_DOUBLE then
+		dim _iTypePlateArray[2]
+		dim _stTypePlateArray[2]
+		_iTypePlateArray[1] = PLATE_ONE_PLUG
+		_iTypePlateArray[2] = PLATE_TWO_PLUG
+
+		_stTypePlateArray[1] = _stTypePlateNameArray[1]
+		_stTypePlateArray[2] = _stTypePlateNameArray[2]
+	endif
+else
+
+	if iBoxSize = BOXSIZE_SIMPLE then
+		dim _iTypePlateArray[6]
+		dim _stTypePlateArray[6]
+		_iTypePlateArray[1] = PLATE_ONE_ROW
+		_iTypePlateArray[2] = PLATE_TWO_ROW
+		_iTypePlateArray[3] = PLATE_THREE_ROW
+		_iTypePlateArray[4] = PLATE_ONE_VERT
+		_iTypePlateArray[5] = PLATE_TWO_VERT
+		_iTypePlateArray[6] = PLATE_BLANK
+
+		_stTypePlateArray[1] = _stTypePlateNameArray[3]
+		_stTypePlateArray[2] = _stTypePlateNameArray[4]
+		_stTypePlateArray[3] = _stTypePlateNameArray[5]
+		_stTypePlateArray[4] = _stTypePlateNameArray[6]
+		_stTypePlateArray[5] = _stTypePlateNameArray[7]
+		_stTypePlateArray[6] = _stTypePlateNameArray[8]
+	else
+		dim _iTypePlateArray[5]
+		dim _stTypePlateArray[5]
+		_iTypePlateArray[1] = PLATE_ONE_ROW
+		_iTypePlateArray[2] = PLATE_TWO_ROW
+		_iTypePlateArray[3] = PLATE_THREE_ROW
+		_iTypePlateArray[4] = PLATE_TWO_VERT
+		_iTypePlateArray[5] = PLATE_BLANK
+
+		_stTypePlateArray[1] = _stTypePlateNameArray[9]
+		_stTypePlateArray[2] = _stTypePlateNameArray[10]
+		_stTypePlateArray[3] = _stTypePlateNameArray[11]
+		_stTypePlateArray[4] = _stTypePlateNameArray[12]
+		_stTypePlateArray[5] = _stTypePlateNameArray[8]
+
+	endif
+endif
+
+
+
+!--------------------------------------
+!MOVIMENTAÇÃO DE ALTURA
+!--------------------------------------
+
+!Distancia hotspot
+
+hotdis = 0.05 * (scale - 1) 
+
+if isHeightOnFloorPlan = 0 then
+
+movheight = 0
+
+endif
+
+
+
+!--------------------------------------
+!CANETAS DE CONTORNO UNIFOMES
+!--------------------------------------
+
+IF uni_cont_pen = 1 THEN
+
+	gs_cont_pen_int = gs_cont_pen
+
+	gs_cont_pen_plugue = gs_cont_pen
+
+	gs_cont_pen_tv = gs_cont_pen
+
+	gs_cont_pen_tusb = gs_cont_pen
+
+	gs_cont_pen_usb = gs_cont_pen
+
+	gs_cont_pen_rj = gs_cont_pen
+
+	gs_cont_pen_pluguem = gs_cont_pen
+
+
+ENDIF
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
